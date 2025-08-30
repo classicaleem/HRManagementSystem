@@ -1,0 +1,198 @@
+﻿@model AttendanceReportViewModel
+@{
+    ViewData["Title"] = "Daily Attendance Report";
+}
+
+<div class="row">
+    <div class="col-md-12">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <h2>Daily Attendance Report</h2>
+            <div>
+                <span id="lastUpdated" class="text-muted me-3">Last updated: @DateTime.Now.ToString("HH:mm:ss")</span>
+                <button id="refreshBtn" class="btn btn-sm btn-outline-primary" onclick="refreshAttendance()">
+                    <span id="refreshIcon" class="bi bi-arrow-clockwise">🔄</span> Refresh
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row mb-3">
+    <div class="col-md-6">
+        <form method="get" asp-action="AttendanceReport">
+            <div class="row">
+                <div class="col-md-6">
+                    <label class="form-label">Report Date:</label>
+                    <input type="date" name="reportDate" value="@Model.ReportDate.ToString("yyyy-MM-dd")" class="form-control" onchange="this.form.submit()" />
+                </div>
+                @if (User.IsInRole("Admin"))
+                {
+                    <div class="col-md-6">
+                        <label class="form-label">Company:</label>
+                        <select name="companyCode" class="form-control" onchange="this.form.submit()" asp-items="Model.CompanySelectList">
+                        </select>
+                    </div>
+                }
+            </div>
+        </form>
+    </div>
+    <div class="col-md-6">
+        <div class="row text-center">
+            <div class="col-md-4">
+                <div class="card bg-primary text-white">
+                    <div class="card-body">
+                        <h5 id="totalEmployees">@Model.TotalEmployees</h5>
+                        <small>Total Employees</small>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card bg-success text-white">
+                    <div class="card-body">
+                        <h5 id="presentEmployees">@Model.PresentEmployees</h5>
+                        <small>Present</small>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card bg-danger text-white">
+                    <div class="card-body">
+                        <h5 id="absentEmployees">@Model.AbsentEmployees</h5>
+                        <small>Absent</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-12">
+        <div class="table-responsive">
+            <table id="attendanceTable" class="table table-bordered attendance-table table-sm">
+                <thead class="table-dark">
+                    <tr>
+                        <th rowspan="2">Designation</th>
+                        <th rowspan="2">Sub-Designation</th>
+                        <th colspan="4">Categories</th>
+                        <th colspan="3">Summary</th>
+                    </tr>
+                    <tr>
+                        <th>Attacher</th>
+                        <th>Folder</th>
+                        <th>Sticher</th>
+                        <th>Others</th>
+                        <th>Absent</th>
+                        <th>Present</th>
+                        <th>Total</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var designation in Model.AttendanceByDesignations)
+                    {
+                        var firstRow = true;
+                        @foreach (var subDesignation in designation.SubDesignations)
+                        {
+                            <tr>
+                                @if (firstRow)
+                                {
+                                    <td rowspan="@designation.SubDesignations.Count" class="designation-header">
+                                        @designation.ParentDesignation
+                                    </td>
+                                    firstRow = false;
+                                }
+                                <td>@subDesignation.SubDesignation</td>
+                                <td>@subDesignation.Attacher</td>
+                                <td>@subDesignation.Folder</td>
+                                <td>@subDesignation.Sticher</td>
+                                <td>@subDesignation.Others</td>
+                                <td class="@(subDesignation.Absent > 0 ? "text-danger" : "")">@subDesignation.Absent</td>
+                                <td class="@(subDesignation.Present > 0 ? "text-success" : "")">@subDesignation.Present</td>
+                                <td><strong>@subDesignation.Total</strong></td>
+                            </tr>
+                        }
+                        <tr class="table-secondary">
+                            <td colspan="2"><strong>@designation.ParentDesignation Total</strong></td>
+                            <td><strong>@designation.SubDesignations.Sum(s => s.Attacher)</strong></td>
+                            <td><strong>@designation.SubDesignations.Sum(s => s.Folder)</strong></td>
+                            <td><strong>@designation.SubDesignations.Sum(s => s.Sticher)</strong></td>
+                            <td><strong>@designation.SubDesignations.Sum(s => s.Others)</strong></td>
+                            <td class="text-danger"><strong>@designation.AbsentEmployees</strong></td>
+                            <td class="text-success"><strong>@designation.PresentEmployees</strong></td>
+                            <td><strong>@designation.TotalEmployees</strong></td>
+                        </tr>
+                    }
+                </tbody>
+                <tfoot class="table-dark">
+                    <tr>
+                        <td colspan="2"><strong>Grand Total</strong></td>
+                        <td><strong>@Model.AttendanceByDesignations.SelectMany(d => d.SubDesignations).Sum(s => s.Attacher)</strong></td>
+                        <td><strong>@Model.AttendanceByDesignations.SelectMany(d => d.SubDesignations).Sum(s => s.Folder)</strong></td>
+                        <td><strong>@Model.AttendanceByDesignations.SelectMany(d => d.SubDesignations).Sum(s => s.Sticher)</strong></td>
+                        <td><strong>@Model.AttendanceByDesignations.SelectMany(d => d.SubDesignations).Sum(s => s.Others)</strong></td>
+                        <td class="text-danger"><strong>@Model.AbsentEmployees</strong></td>
+                        <td class="text-success"><strong>@Model.PresentEmployees</strong></td>
+                        <td><strong>@Model.TotalEmployees</strong></td>
+                    </tr>
+                </tfoot>
+            </table>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        // Enhanced function to update attendance cards with SignalR data
+        function updateAttendanceCards(data) {
+            // Check if this update is for the current company
+            const currentCompany = '@Model.SelectedCompanyCode';
+            if (currentCompany !== '0' && data.CompanyCode != currentCompany) {
+                return; // Don't update if data is for different company
+            }
+
+            // Update summary cards
+            document.getElementById('totalEmployees').textContent = data.TotalEmployees;
+            document.getElementById('presentEmployees').textContent = data.PresentEmployees;
+            document.getElementById('absentEmployees').textContent = data.AbsentEmployees;
+            document.getElementById('lastUpdated').textContent = 'Last updated: ' + data.LastUpdated;
+
+            // Add visual feedback for real-time updates
+            const cards = document.querySelectorAll('.card.bg-primary, .card.bg-success, .card.bg-danger');
+            cards.forEach(card => {
+                card.style.transform = 'scale(1.05)';
+                card.style.transition = 'transform 0.3s ease';
+                setTimeout(() => {
+                    card.style.transform = 'scale(1)';
+                }, 300);
+            });
+        }
+
+        // Function to refresh attendance table data
+        function refreshAttendanceTable() {
+            const currentUrl = new URL(window.location);
+            const companyCode = currentUrl.searchParams.get('companyCode') || '0';
+            
+            fetch(`@Url.Action("GetAttendanceStats", "Home")?companyCode=${companyCode}`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        updateAttendanceCards({
+                            TotalEmployees: data.totalEmployees,
+                            PresentEmployees: data.presentEmployees,
+                            AbsentEmployees: data.absentEmployees,
+                            LastUpdated: data.lastUpdated
+                        });
+                    }
+                })
+                .catch(error => {
+                    console.error('Error fetching attendance stats:', error);
+                });
+        }
+
+        // Page-specific SignalR event handling
+        if (typeof connection !== 'undefined') {
+            // Override the global updateAttendanceCards for this page
+            window.updateAttendanceCards = updateAttendanceCards;
+        }
+    </script>
+}

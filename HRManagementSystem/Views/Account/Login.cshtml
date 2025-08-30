@@ -1,0 +1,378 @@
+﻿@model LoginViewModel
+@{
+    ViewData["Title"] = "Login";
+    Layout = null;
+}
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>@ViewData["Title"] - HR Management System</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            min-height: 100vh;
+            background: linear-gradient(-45deg, #ee7752, #e73c7e, #23a6d5, #23d5ab);
+            background-size: 400% 400%;
+            animation: gradientShift 15s ease infinite;
+            font-family: Arial, sans-serif;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+        }
+
+        /* Animated gradient background */
+        @@keyframes gradientShift {
+            0% {
+                background-position: 0% 50%;
+            }
+
+            50% {
+                background-position: 100% 50%;
+            }
+
+            100% {
+                background-position: 0% 50%;
+            }
+        }
+
+        /* Optional: Add floating bubbles for extra effect */
+        body::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-image: radial-gradient(circle at 20% 80%, rgba(255, 255, 255, 0.1) 0%, transparent 50%), radial-gradient(circle at 80% 20%, rgba(255, 255, 255, 0.1) 0%, transparent 50%), radial-gradient(circle at 40% 40%, rgba(255, 255, 255, 0.08) 0%, transparent 50%);
+            animation: floatBubbles 20s ease-in-out infinite;
+        }
+
+        @@keyframes floatBubbles {
+            0%, 100% {
+                transform: translate(0, 0) rotate(0deg);
+            }
+
+            33% {
+                transform: translate(30px, -30px) rotate(120deg);
+            }
+
+            66% {
+                transform: translate(-20px, 20px) rotate(240deg);
+            }
+        }
+
+        .card {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border: none;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            animation: slideUp 0.5s ease-out;
+            overflow: hidden;
+            position: relative;
+            z-index: 1;
+        }
+
+            .card::before {
+                content: '';
+                position: absolute;
+                top: 0;
+                left: 0;
+                right: 0;
+                height: 3px;
+                background: linear-gradient(90deg, #ee7752, #e73c7e, #23a6d5, #23d5ab);
+                background-size: 300% 300%;
+                animation: gradientShift 15s ease infinite;
+            }
+
+        .card-header {
+            background: transparent;
+            border: none;
+            padding-top: 40px;
+            padding-bottom: 0;
+        }
+
+        /* Character with eyes */
+        .character {
+            width: 120px;
+            height: 120px;
+            margin: 0 auto 20px;
+            position: relative;
+        }
+
+        .face {
+            width: 100px;
+            height: 100px;
+            background: linear-gradient(135deg, #e73c7e, #23a6d5);
+            border-radius: 50%;
+            margin: 0 auto;
+            position: relative;
+            box-shadow: 0 5px 20px rgba(231, 60, 126, 0.3);
+        }
+
+        .eye {
+            width: 15px;
+            height: 15px;
+            background: white;
+            border-radius: 50%;
+            position: absolute;
+            top: 35px;
+            transition: height 0.3s ease;
+        }
+
+            .eye.left {
+                left: 25px;
+            }
+
+            .eye.right {
+                right: 25px;
+            }
+
+            .eye.closed {
+                height: 2px;
+            }
+
+        /* Hands to cover eyes */
+        .hands {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            top: 0;
+            left: 10px;
+        }
+
+        .hand {
+            position: absolute;
+            width: 25px;
+            height: 25px;
+            background: linear-gradient(135deg, #e73c7e, #23a6d5);
+            border-radius: 50%;
+            top: 30px;
+            opacity: 0;
+            transition: all 0.3s ease;
+        }
+
+            .hand.left {
+                left: 15px;
+            }
+
+            .hand.right {
+                right: 15px;
+            }
+
+            .hand.cover {
+                opacity: 1;
+                top: 35px;
+            }
+
+            .hand.left.cover {
+                left: 20px;
+            }
+
+            .hand.right.cover {
+                right: 20px;
+            }
+
+        h3 {
+            color: #333;
+            font-weight: 600;
+        }
+
+        .form-label {
+            color: #555;
+            font-weight: 600;
+            margin-bottom: 8px;
+        }
+
+        .form-control {
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            padding: 10px 12px;
+            font-size: 15px;
+            transition: border-color 0.3s;
+        }
+
+            .form-control:focus {
+                border-color: #6B73FF;
+                box-shadow: 0 0 0 0.2rem rgba(107, 115, 255, 0.25);
+            }
+
+        .password-container {
+            position: relative;
+        }
+
+        .toggle-password {
+            position: absolute;
+            right: 12px;
+            top: 50%;
+            transform: translateY(-50%);
+            cursor: pointer;
+            color: #6B73FF;
+            font-size: 18px;
+            background: none;
+            border: none;
+            padding: 5px;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #6B73FF, #000DFF);
+            border: none;
+            border-radius: 8px;
+            padding: 12px;
+            font-size: 16px;
+            font-weight: 600;
+            transition: transform 0.2s;
+        }
+
+            .btn-primary:hover {
+                background: linear-gradient(135deg, #5A62E5, #0009CC);
+                transform: translateY(-2px);
+            }
+
+            .btn-primary:active {
+                transform: translateY(0);
+            }
+
+        .form-check-input:checked {
+            background-color: #6B73FF;
+            border-color: #6B73FF;
+        }
+
+        .text-danger {
+            font-size: 14px;
+            margin-top: 5px;
+        }
+
+        /* Animation keyframes - escaped for Razor */
+        @@-webkit-keyframes slideUp {
+            from {
+                opacity: 0;
+                transform: translateY(30px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        @@keyframes slideUp {
+            from {
+                opacity: 0;
+                transform: translateY(30px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="row justify-content-center w-100">
+        <div class="col-md-6 col-lg-5 col-xl-4">
+            <div class="card">
+                <div class="card-header">
+                    <!-- Animated character -->
+                    <div class="character">
+                        <div class="face">
+                            <div class="eye left" id="leftEye"></div>
+                            <div class="eye right" id="rightEye"></div>
+                        </div>
+                        <div class="hands">
+                            <div class="hand left" id="leftHand"></div>
+                            <div class="hand right" id="rightHand"></div>
+                        </div>
+                    </div>
+                    <h3 class="text-center">HR Management System Login</h3>
+                </div>
+                <div class="card-body">
+                    <form asp-action="Login" method="post">
+                        <div asp-validation-summary="ModelOnly" class="text-danger"></div>
+
+                        <div class="form-group mb-3">
+                            <label asp-for="Username" class="form-label"></label>
+                            <input asp-for="Username" class="form-control" placeholder="Enter your username" />
+                            <span asp-validation-for="Username" class="text-danger"></span>
+                        </div>
+
+                        <div class="form-group mb-3">
+                            <label asp-for="Password" class="form-label"></label>
+                            <div class="password-container">
+                                <input asp-for="Password" type="password" class="form-control" placeholder="Enter your password" />
+                                <button type="button" class="toggle-password" id="togglePassword">👁️</button>
+                            </div>
+                            <span asp-validation-for="Password" class="text-danger"></span>
+                        </div>
+
+                        <div class="form-check mb-3">
+                            <input asp-for="RememberMe" class="form-check-input" />
+                            <label asp-for="RememberMe" class="form-check-label">Remember Me</label>
+                        </div>
+
+                        <div class="d-grid">
+                            <button type="submit" class="btn btn-primary">Login</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // Get password input by its ID (ASP.NET will generate this)
+        document.addEventListener('DOMContentLoaded', function() {
+            const passwordInput = document.querySelector('input[type="password"]');
+            const togglePassword = document.getElementById('togglePassword');
+            const leftEye = document.getElementById('leftEye');
+            const rightEye = document.getElementById('rightEye');
+            const leftHand = document.getElementById('leftHand');
+            const rightHand = document.getElementById('rightHand');
+
+            // Hide eyes when typing password
+            if (passwordInput) {
+                passwordInput.addEventListener('focus', function() {
+                    leftEye.classList.add('closed');
+                    rightEye.classList.add('closed');
+                    leftHand.classList.add('cover');
+                    rightHand.classList.add('cover');
+                });
+
+                passwordInput.addEventListener('blur', function() {
+                    leftEye.classList.remove('closed');
+                    rightEye.classList.remove('closed');
+                    leftHand.classList.remove('cover');
+                    rightHand.classList.remove('cover');
+                });
+
+                // Toggle password visibility
+                togglePassword.addEventListener('click', function() {
+                    const type = passwordInput.getAttribute('type') === 'password' ? 'text' : 'password';
+                    passwordInput.setAttribute('type', type);
+                    this.textContent = type === 'password' ? '👁️' : '🙈';
+
+                    // Keep eyes covered when showing password
+                    if (type === 'text') {
+                        leftEye.classList.add('closed');
+                        rightEye.classList.add('closed');
+                        leftHand.classList.add('cover');
+                        rightHand.classList.add('cover');
+                    }
+                });
+            }
+        });
+    </script>
+</body>
+</html>

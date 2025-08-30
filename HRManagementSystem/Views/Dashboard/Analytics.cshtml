@@ -1,0 +1,572 @@
+﻿@* @using HRManagementSystem.Models.Dashboard
+@model DashboardAnalyticsViewModel
+@{
+    ViewData["Title"] = "HR Analytics Dashboard";
+}
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+
+<style>
+    .dashboard-card {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        border: none;
+        border-radius: 15px;
+        box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+        transition: transform 0.3s ease, box-shadow 0.3s ease;
+    }
+
+        .dashboard-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 20px 40px rgba(0,0,0,0.15);
+        }
+
+    .kpi-card {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        border: none;
+        border-radius: 15px;
+        color: white;
+        padding: 25px;
+        margin-bottom: 20px;
+        box-shadow: 0 8px 25px rgba(0,0,0,0.1);
+        transition: all 0.3s ease;
+    }
+
+        .kpi-card.success {
+            background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+        }
+
+        .kpi-card.warning {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+        }
+
+        .kpi-card.info {
+            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+        }
+
+        .kpi-card.primary {
+            background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);
+        }
+
+    .kpi-value {
+        font-size: 2.5rem;
+        font-weight: 700;
+        margin: 10px 0;
+        text-shadow: 0 2px 4px rgba(0,0,0,0.2);
+    }
+
+    .kpi-label {
+        font-size: 0.9rem;
+        opacity: 0.9;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+    }
+
+    .kpi-icon {
+        font-size: 2.5rem;
+        opacity: 0.8;
+        float: right;
+        margin-top: -10px;
+    }
+
+    .data-container {
+        background: white;
+        border-radius: 15px;
+        padding: 25px;
+        box-shadow: 0 8px 25px rgba(0,0,0,0.08);
+        margin-bottom: 25px;
+        border: 1px solid #f0f0f0;
+    }
+
+    .data-title {
+        font-size: 1.2rem;
+        font-weight: 600;
+        color: #2c3e50;
+        margin-bottom: 20px;
+        text-align: center;
+    }
+
+    .metric-item {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 12px 0;
+        border-bottom: 1px solid #eee;
+    }
+
+        .metric-item:last-child {
+            border-bottom: none;
+        }
+
+    .metric-label {
+        font-weight: 500;
+        color: #34495e;
+    }
+
+    .metric-value {
+        font-weight: 600;
+        color: #2980b9;
+    }
+
+    .dashboard-header {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        padding: 30px;
+        border-radius: 15px;
+        margin-bottom: 30px;
+        box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+    }
+
+    .dashboard-title {
+        font-size: 2.5rem;
+        font-weight: 700;
+        margin-bottom: 10px;
+        text-shadow: 0 2px 4px rgba(0,0,0,0.2);
+    }
+
+    .dashboard-subtitle {
+        opacity: 0.9;
+        font-size: 1.1rem;
+    }
+
+    .refresh-indicator {
+        animation: spin 1s linear infinite;
+    }
+
+    keyframes spin {
+        from
+
+    {
+        transform: rotate(0deg);
+    }
+
+    to {
+        transform: rotate(360deg);
+    }
+
+    }
+
+    .data-table {
+        width: 100%;
+        margin-top: 15px;
+    }
+
+        .data-table th {
+            background: #f8f9fa;
+            color: #495057;
+            font-weight: 600;
+            padding: 12px;
+            border: 1px solid #dee2e6;
+        }
+
+        .data-table td {
+            padding: 10px 12px;
+            border: 1px solid #dee2e6;
+        }
+
+    .percentage-bar {
+        background: #e9ecef;
+        height: 8px;
+        border-radius: 4px;
+        overflow: hidden;
+        margin-top: 5px;
+    }
+
+    .percentage-fill {
+        height: 100%;
+        background: linear-gradient(90deg, #28a745, #20c997);
+        transition: width 0.3s ease;
+    }
+</style>
+
+<div class="dashboard-header">
+    <div class="row align-items-center">
+        <div class="col-md-8">
+            <h1 class="dashboard-title">
+                <i class="fas fa-chart-line"></i> HR Analytics Dashboard
+            </h1>
+            <p class="dashboard-subtitle mb-0">Real-time insights and performance metrics</p>
+        </div>
+        <div class="col-md-4 text-end">
+            <div class="dropdown">
+                <select id="companySelect" class="form-select" style="background: rgba(255,255,255,0.2); border: none; color: white;">
+                    <option value="0">All Companies</option>
+                    @foreach (var company in Model.Companies)
+                    {
+                        <option value="@company.CompanyCode" selected="@(company.CompanyCode == Model.SelectedCompanyCode)">
+                            @company.CompanyName
+                        </option>
+                    }
+                </select>
+            </div>
+            <small id="lastUpdated" style="opacity: 0.8;">Loading...</small>
+        </div>
+    </div>
+</div>
+
+<!-- KPI Cards -->
+<div class="row" id="kpiCards">
+    <div class="col-md-3 col-sm-6">
+        <div class="kpi-card success">
+            <div class="kpi-icon"><i class="fas fa-users"></i></div>
+            <div class="kpi-label">Total Employees</div>
+            <div class="kpi-value" id="totalEmployees">-</div>
+        </div>
+    </div>
+    <div class="col-md-3 col-sm-6">
+        <div class="kpi-card info">
+            <div class="kpi-icon"><i class="fas fa-user-check"></i></div>
+            <div class="kpi-label">Present Today</div>
+            <div class="kpi-value" id="presentEmployees">-</div>
+        </div>
+    </div>
+    <div class="col-md-3 col-sm-6">
+        <div class="kpi-card warning">
+            <div class="kpi-icon"><i class="fas fa-user-times"></i></div>
+            <div class="kpi-label">Absent Today</div>
+            <div class="kpi-value" id="absentEmployees">-</div>
+        </div>
+    </div>
+    <div class="col-md-3 col-sm-6">
+        <div class="kpi-card primary">
+            <div class="kpi-icon"><i class="fas fa-percentage"></i></div>
+            <div class="kpi-label">Attendance %</div>
+            <div class="kpi-value" id="attendancePercentage">-</div>
+        </div>
+    </div>
+</div>
+
+<!-- Cost Analysis Row -->
+<div class="row">
+    <div class="col-md-8">
+        <div class="data-container">
+            <h5 class="data-title">
+                <i class="fas fa-rupee-sign text-success"></i> Weekly Cost Analysis
+            </h5>
+            <table class="data-table table table-striped">
+                <thead>
+                    <tr>
+                        <th>Day</th>
+                        <th>Present</th>
+                        <th>Absent</th>
+                        <th>Attendance %</th>
+                        <th>Daily Cost</th>
+                    </tr>
+                </thead>
+                <tbody id="weeklyDataTable">
+                    <tr>
+                        <td colspan="5" class="text-center">
+                            <i class="fas fa-spinner refresh-indicator"></i> Loading...
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="data-container">
+            <h5 class="data-title">
+                <i class="fas fa-piggy-bank text-primary"></i> Today's Cost Breakdown
+            </h5>
+            <div id="costMetrics">
+                <div class="metric-item">
+                    <span class="metric-label">Budgeted Cost</span>
+                    <span class="metric-value" id="budgetedCost">₹0</span>
+                </div>
+                <div class="metric-item">
+                    <span class="metric-label">Actual Cost</span>
+                    <span class="metric-value" id="actualCost">₹0</span>
+                </div>
+                <div class="metric-item">
+                    <span class="metric-label">Cost Saving</span>
+                    <span class="metric-value text-success" id="costSaving">₹0</span>
+                </div>
+                <div class="metric-item">
+                    <span class="metric-label">Avg. Cost/Employee</span>
+                    <span class="metric-value" id="avgCost">₹0</span>
+                </div>
+                <div class="metric-item">
+                    <span class="metric-label">Efficiency</span>
+                    <span class="metric-value text-info" id="efficiency">0%</span>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Department Performance -->
+<div class="row">
+    <div class="col-md-12">
+        <div class="data-container">
+            <h5 class="data-title">
+                <i class="fas fa-building text-warning"></i> Department Performance
+            </h5>
+            <table class="data-table table table-striped">
+                <thead>
+                    <tr>
+                        <th>Department</th>
+                        <th>Present</th>
+                        <th>Absent</th>
+                        <th>Total</th>
+                        <th>Attendance %</th>
+                        <th>Performance</th>
+                    </tr>
+                </thead>
+                <tbody id="departmentDataTable">
+                    <tr>
+                        <td colspan="6" class="text-center">
+                            <i class="fas fa-spinner refresh-indicator"></i> Loading...
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<script>
+    let refreshInterval;
+
+    document.addEventListener('DOMContentLoaded', function() {
+        console.log('DOM loaded - starting initialization');
+
+        // Test basic connectivity first
+        testBasicConnectivity();
+
+        // Load dashboard data
+        loadDashboardData();
+
+        // Auto-refresh every 5 minutes
+        refreshInterval = setInterval(loadDashboardData, 300000);
+
+        // Company change event
+        document.getElementById('companySelect').addEventListener('change', function() {
+            console.log('Company changed to:', this.value);
+            loadDashboardData();
+        });
+    });
+
+    function testBasicConnectivity() {
+        const companyCode = document.getElementById('companySelect').value || 0;
+        console.log('Testing basic connectivity with company code:', companyCode);
+
+        fetch(`/Dashboard/TestBasicData?companyCode=${companyCode}`)
+            .then(response => {
+                console.log('Test response status:', response.status);
+                return response.json();
+            })
+            .then(data => {
+                console.log('Test data received:', data);
+                if (data.success) {
+                    console.log(`✅ Basic test successful - Found ${data.totalEmployees} employees`);
+                    showNotification(`✅ Connection OK - ${data.totalEmployees} employees found`, 'success');
+                } else {
+                    console.error('❌ Basic test failed:', data);
+                    showNotification('❌ Connection test failed: ' + data.error, 'error');
+                }
+            })
+            .catch(error => {
+                console.error('❌ Network error in test:', error);
+                showNotification('❌ Network error: ' + error.message, 'error');
+            });
+    }
+
+    function loadDashboardData() {
+        const companyCode = document.getElementById('companySelect').value || 0;
+        console.log('Loading dashboard data for company:', companyCode);
+
+        // Show loading state
+        document.querySelectorAll('.kpi-value').forEach(el => {
+            el.innerHTML = '<i class="fas fa-spinner refresh-indicator"></i>';
+        });
+
+        const url = `/Dashboard/GetDashboardData?companyCode=${companyCode}&days=7`;
+        console.log('Fetching from URL:', url);
+
+        fetch(url)
+            .then(response => {
+                console.log('Dashboard response status:', response.status);
+
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+
+                return response.json();
+            })
+            .then(data => {
+                console.log('Dashboard data received:', data);
+
+                if (data.success) {
+                    console.log('✅ Dashboard data loaded successfully');
+                    updateKPICards(data.summary);
+                    updateWeeklyDataTable(data.trends);
+                    updateDepartmentTable(data.departments);
+                    updateCostMetrics(data.costBreakdown);
+
+                    document.getElementById('lastUpdated').textContent =
+                        `Last updated: ${data.summary.lastUpdated}`;
+
+                    showNotification('✅ Data loaded successfully', 'success');
+                } else {
+                    console.error('❌ Dashboard data error:', data);
+                    showNotification('❌ Data error: ' + (data.message || 'Unknown error'), 'error');
+                }
+            })
+            .catch(error => {
+                console.error('❌ Error loading dashboard data:', error);
+                showNotification('❌ Load error: ' + error.message, 'error');
+
+                // Reset loading indicators
+                document.querySelectorAll('.kpi-value').forEach(el => {
+                    el.textContent = 'Error';
+                });
+            });
+    }
+
+    function updateKPICards(summary) {
+        console.log('Updating KPI cards with:', summary);
+
+        try {
+            document.getElementById('totalEmployees').textContent = summary.totalEmployees?.toLocaleString() || '0';
+            document.getElementById('presentEmployees').textContent = summary.presentEmployees?.toLocaleString() || '0';
+            document.getElementById('absentEmployees').textContent = summary.absentEmployees?.toLocaleString() || '0';
+            document.getElementById('attendancePercentage').textContent = (summary.attendancePercentage || 0) + '%';
+
+            console.log('✅ KPI cards updated successfully');
+        } catch (error) {
+            console.error('❌ Error updating KPI cards:', error);
+        }
+    }
+
+    function updateWeeklyDataTable(trends) {
+        console.log('Updating weekly data table with:', trends);
+
+        const tableBody = document.getElementById('weeklyDataTable');
+        if (!tableBody || !trends || trends.length === 0) {
+            tableBody.innerHTML = '<tr><td colspan="5" class="text-center text-muted">No data available</td></tr>';
+            return;
+        }
+
+        try {
+            const rows = trends.map(trend => {
+                const percentage = trend.attendancePercentage || 0;
+                const percentageClass = percentage >= 85 ? 'text-success' : percentage >= 70 ? 'text-warning' : 'text-danger';
+
+                return `
+                    <tr>
+                        <td><strong>${trend.dayName || 'Unknown'}</strong></td>
+                        <td class="text-success">${(trend.present || 0).toLocaleString()}</td>
+                        <td class="text-danger">${(trend.absent || 0).toLocaleString()}</td>
+                        <td class="${percentageClass}">
+                            ${percentage}%
+                            <div class="percentage-bar">
+                                <div class="percentage-fill" style="width: ${percentage}%"></div>
+                            </div>
+                        </td>
+                        <td class="text-primary">₹${(trend.cost || 0).toLocaleString()}</td>
+                    </tr>
+                `;
+            }).join('');
+
+            tableBody.innerHTML = rows;
+            console.log('✅ Weekly data table updated successfully');
+        } catch (error) {
+            console.error('❌ Error updating weekly data table:', error);
+            tableBody.innerHTML = '<tr><td colspan="5" class="text-center text-danger">Error loading data</td></tr>';
+        }
+    }
+
+    function updateDepartmentTable(departments) {
+        console.log('Updating department table with:', departments);
+
+        const tableBody = document.getElementById('departmentDataTable');
+        if (!tableBody || !departments || departments.length === 0) {
+            tableBody.innerHTML = '<tr><td colspan="6" class="text-center text-muted">No department data available</td></tr>';
+            return;
+        }
+
+        try {
+            const rows = departments.map(dept => {
+                const percentage = dept.percentage || 0;
+                const percentageClass = percentage >= 85 ? 'text-success' : percentage >= 70 ? 'text-warning' : 'text-danger';
+
+                return `
+                    <tr>
+                        <td><strong>${dept.department || 'Unknown'}</strong></td>
+                        <td class="text-success">${(dept.present || 0).toLocaleString()}</td>
+                        <td class="text-danger">${(dept.absent || 0).toLocaleString()}</td>
+                        <td>${(dept.total || 0).toLocaleString()}</td>
+                        <td class="${percentageClass}">${percentage}%</td>
+                        <td>
+                            <div class="percentage-bar">
+                                <div class="percentage-fill" style="width: ${percentage}%"></div>
+                            </div>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+
+            tableBody.innerHTML = rows;
+            console.log('✅ Department table updated successfully');
+        } catch (error) {
+            console.error('❌ Error updating department table:', error);
+            tableBody.innerHTML = '<tr><td colspan="6" class="text-center text-danger">Error loading data</td></tr>';
+        }
+    }
+
+    function updateCostMetrics(costData) {
+        console.log('Updating cost metrics with:', costData);
+
+        try {
+            // Mock implementation - replace with actual cost data
+            const actual = costData?.TotalCost || 0;
+            const budgeted = actual * 1.2; // Assume 20% buffer
+            const saving = budgeted - actual;
+            const efficiency = budgeted > 0 ? Math.round((saving / budgeted) * 100) : 0;
+
+            document.getElementById('budgetedCost').textContent = '₹' + budgeted.toLocaleString();
+            document.getElementById('actualCost').textContent = '₹' + actual.toLocaleString();
+            document.getElementById('costSaving').textContent = '₹' + saving.toLocaleString();
+            document.getElementById('avgCost').textContent = '₹500'; // Mock average
+            document.getElementById('efficiency').textContent = efficiency + '%';
+
+            console.log('✅ Cost metrics updated successfully');
+        } catch (error) {
+            console.error('❌ Error updating cost metrics:', error);
+        }
+    }
+
+    function showNotification(message, type) {
+        console.log(`Notification: ${type} - ${message}`);
+
+        // Remove existing notifications
+        document.querySelectorAll('.debug-notification').forEach(n => n.remove());
+
+        // Create notification
+        const notification = document.createElement('div');
+        notification.className = `alert alert-${type === 'success' ? 'success' : 'danger'} position-fixed debug-notification`;
+        notification.style.cssText = 'top: 20px; right: 20px; z-index: 9999; min-width: 300px; max-width: 400px;';
+        notification.innerHTML = `
+            <i class="fas fa-${type === 'success' ? 'check-circle' : 'exclamation-triangle'}"></i>
+            ${message}
+            <button type="button" class="btn-close float-end" onclick="this.parentElement.remove()"></button>
+        `;
+
+        document.body.appendChild(notification);
+
+        // Auto-remove after 8 seconds
+        setTimeout(() => {
+            if (notification.parentElement) {
+                notification.remove();
+            }
+        }, 8000);
+    }
+
+    // Cleanup on page unload
+    window.addEventListener('beforeunload', function() {
+        if (refreshInterval) {
+            clearInterval(refreshInterval);
+        }
+    });
+
+    console.log('✅ Dashboard JavaScript loaded successfully (No Charts Version)');
+</script> *@

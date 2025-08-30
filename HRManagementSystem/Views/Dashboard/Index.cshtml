@@ -1,0 +1,890 @@
+﻿@using HRManagementSystem.Models.Dashboard
+@model CategoryDashboardViewModel
+@{
+    ViewData["Title"] = "Category-Based Dashboard";
+    var isAdmin = Model.UserRole == "Admin";
+    var isHR = Model.UserRole == "HR" || Model.UserRole == "GM";
+    var canViewAllCompanies = isAdmin;
+    var canSelectCategories = isAdmin || isHR;
+}
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+
+<style>
+    .dashboard-header {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        padding: 30px;
+        border-radius: 15px;
+        margin-bottom: 30px;
+        box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+    }
+
+    .dashboard-title {
+        font-size: 2.2rem;
+        font-weight: 700;
+        margin-bottom: 10px;
+        text-shadow: 0 2px 4px rgba(0,0,0,0.2);
+    }
+
+    .filter-card {
+        background: white;
+        border-radius: 15px;
+        padding: 25px;
+        box-shadow: 0 8px 25px rgba(0,0,0,0.08);
+        margin-bottom: 25px;
+        border: 2px solid #e9ecef;
+    }
+
+    .filter-title {
+        font-size: 1.1rem;
+        font-weight: 600;
+        color: #2c3e50;
+        margin-bottom: 20px;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+
+    .category-checkbox {
+        margin: 10px 15px 10px 0;
+        display: inline-block;
+    }
+
+        .category-checkbox input[type="checkbox"] {
+            width: 18px;
+            height: 18px;
+            margin-right: 8px;
+            accent-color: #667eea;
+        }
+
+        .category-checkbox label {
+            font-weight: 500;
+            color: #495057;
+            cursor: pointer;
+            user-select: none;
+        }
+
+    .kpi-card {
+        background: white;
+        border-radius: 15px;
+        padding: 25px;
+        box-shadow: 0 8px 25px rgba(0,0,0,0.08);
+        margin-bottom: 20px;
+        border-left: 5px solid;
+        transition: transform 0.3s ease;
+    }
+
+        .kpi-card:hover {
+            transform: translateY(-3px);
+        }
+
+        .kpi-card.primary {
+            border-left-color: #007bff;
+        }
+
+        .kpi-card.success {
+            border-left-color: #28a745;
+        }
+
+        .kpi-card.warning {
+            border-left-color: #ffc107;
+        }
+
+        .kpi-card.danger {
+            border-left-color: #dc3545;
+        }
+
+        .kpi-card.info {
+            border-left-color: #17a2b8;
+        }
+
+    .kpi-value {
+        font-size: 2.2rem;
+        font-weight: 700;
+        margin: 10px 0;
+        color: #2c3e50;
+    }
+
+    .kpi-label {
+        font-size: 0.9rem;
+        color: #6c757d;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        font-weight: 600;
+    }
+
+    .kpi-icon {
+        font-size: 2.5rem;
+        opacity: 0.7;
+        float: right;
+        margin-top: -10px;
+    }
+
+    .data-container {
+        background: white;
+        border-radius: 15px;
+        padding: 25px;
+        box-shadow: 0 8px 25px rgba(0,0,0,0.08);
+        margin-bottom: 25px;
+    }
+
+    .data-title {
+        font-size: 1.2rem;
+        font-weight: 600;
+        color: #2c3e50;
+        margin-bottom: 20px;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+
+    .category-badge {
+        display: inline-block;
+        background: linear-gradient(135deg, #667eea, #764ba2);
+        color: white;
+        padding: 5px 12px;
+        border-radius: 20px;
+        font-size: 0.85rem;
+        font-weight: 500;
+        margin: 3px;
+    }
+
+    .data-table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 15px;
+    }
+
+        .data-table th {
+            background: #f8f9fa;
+            color: #495057;
+            font-weight: 600;
+            padding: 12px;
+            border: 1px solid #dee2e6;
+            text-align: left;
+        }
+
+        .data-table td {
+            padding: 10px 12px;
+            border: 1px solid #dee2e6;
+            vertical-align: middle;
+        }
+
+        .data-table tr:nth-child(even) {
+            background-color: #f8f9fa;
+        }
+
+    .percentage-bar {
+        background: #e9ecef;
+        height: 8px;
+        border-radius: 4px;
+        overflow: hidden;
+        margin-top: 5px;
+        width: 100px;
+    }
+
+    .percentage-fill {
+        height: 100%;
+        background: linear-gradient(90deg, #28a745, #20c997);
+        transition: width 0.3s ease;
+        border-radius: 4px;
+    }
+
+    .cost-metric {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 15px 0;
+        border-bottom: 1px solid #e9ecef;
+    }
+
+        .cost-metric:last-child {
+            border-bottom: none;
+        }
+
+    .cost-label {
+        font-weight: 500;
+        color: #495057;
+    }
+
+    .cost-value {
+        font-weight: 600;
+        font-size: 1.1rem;
+    }
+
+        .cost-value.positive {
+            color: #28a745;
+        }
+
+        .cost-value.negative {
+            color: #dc3545;
+        }
+
+        .cost-value.neutral {
+            color: #007bff;
+        }
+
+    .refresh-indicator {
+        animation: spin 1s linear infinite;
+    }
+
+    .role-badge {
+        background: rgba(255,255,255,0.2);
+        color: white;
+        padding: 4px 12px;
+        border-radius: 15px;
+        font-size: 0.8rem;
+        font-weight: 500;
+    }
+
+    .company-selector {
+        background: rgba(255,255,255,0.2);
+        border: 1px solid rgba(255,255,255,0.3);
+        color: white;
+        border-radius: 8px;
+    }
+
+        .company-selector:focus {
+            background: rgba(255,255,255,0.3);
+            border-color: rgba(255,255,255,0.5);
+            color: white;
+            box-shadow: 0 0 0 0.2rem rgba(255,255,255,0.25);
+        }
+
+        .company-selector option {
+            background: #343a40;
+            color: white;
+        }
+
+    .disabled-filter {
+        opacity: 0.6;
+        pointer-events: none;
+    }
+
+    .user-info {
+        background: rgba(255,255,255,0.1);
+        border-radius: 8px;
+        padding: 10px;
+        margin-top: 10px;
+    }
+
+    @@keyframes spin {
+        from
+
+    {
+        transform: rotate(0deg);
+    }
+
+    to {
+        transform: rotate(360deg);
+    }
+
+    }
+
+    .loading-text {
+        color: #6c757d;
+        font-style: italic;
+    }
+
+    .btn-update {
+        background: linear-gradient(135deg, #667eea, #764ba2);
+        border: none;
+        color: white;
+        padding: 10px 25px;
+        border-radius: 25px;
+        font-weight: 500;
+        transition: all 0.3s ease;
+    }
+
+        .btn-update:hover {
+            background: linear-gradient(135deg, #5a6fd8, #6a4190);
+            color: white;
+            transform: translateY(-2px);
+        }
+
+        .btn-update:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+</style>
+
+<div class="dashboard-header">
+    <div class="row align-items-center">
+        <div class="col-md-8">
+            <h1 class="dashboard-title">
+                <i class="fas fa-layer-group"></i> Category-Based Dashboard
+                <span class="role-badge">@Model.UserRole</span>
+            </h1>
+            <p class="mb-0" style="opacity: 0.9;">
+                @if (isAdmin)
+                {
+                    <text>Real-time cost analysis by employee categories - Full Access</text>
+                }
+                else if (isHR)
+                {
+                    <text>Real-time cost analysis for your company - HR Access</text>
+                }
+                else
+                {
+                    <text>Real-time attendance overview - User Access</text>
+                }
+            </p>
+        </div>
+        <div class="col-md-4 text-end">
+            @if (canViewAllCompanies && Model.Companies.Count() > 1)
+            {
+                <select id="companySelect" class="form-select company-selector">
+                    <option value="0">All Companies</option>
+                    @foreach (var company in Model.Companies)
+                    {
+                        <option value="@company.CompanyCode" selected="@(company.CompanyCode == Model.SelectedCompanyCode)">
+                            @company.CompanyName
+                        </option>
+                    }
+                </select>
+            }
+            else if (Model.Companies.Any())
+            {
+                <div class="user-info">
+                    <i class="fas fa-building"></i>
+                    <strong>@Model.Companies.First().CompanyName</strong>
+                    <input type="hidden" id="companySelect" value="@Model.UserCompanyCode" />
+                </div>
+            }
+            <div class="mt-2">
+                <small id="lastUpdated" style="opacity: 0.8;">Loading...</small>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Filter Section -->
+<div class="filter-card">
+
+    <div class="row">
+        <div class="col-md-8">
+            <div class="filter-title">
+                <i class="fas fa-filter text-primary"></i>
+                Select Employee Categories
+                @if (!canSelectCategories)
+                {
+                    <small class="text-muted">(Read-only for your role)</small>
+                }
+            </div>
+            <div id="categoryFilters" class="@(!canSelectCategories ? "disabled-filter" : "")">
+                @if (Model.AvailableCategories.Any())
+                {
+                    @foreach (var category in Model.AvailableCategories)
+                    {
+                        <div class="category-checkbox">
+                            <input type="checkbox"
+                                   id="category_@category"
+                                   value="@category"
+                                   @(Model.SelectedCategories.Contains(category) ? "checked" : "")
+                                   @(!canSelectCategories ? "disabled" : "")>
+                            <label for="category_@category">@category</label>
+                        </div>
+                    }
+                }
+                else
+                {
+                    <p class="text-muted">No categories available for your role</p>
+                }
+            </div>
+            @if (!canSelectCategories)
+            {
+                <small class="text-info">
+                    <i class="fas fa-info-circle"></i>
+                    Categories are pre-selected based on your role and permissions
+                </small>
+            }
+        </div>
+        <div class="col-md-4 text-end">
+            <button type="button"
+                    class="btn btn-update"
+                    onclick="updateDashboard()"
+                    @(!Model.AvailableCategories.Any() ? "disabled" : "")>
+                <i class="fas fa-sync-alt" id="updateIcon"></i> Update Dashboard
+            </button>
+            <div class="mt-2">
+                <small class="text-muted">
+                    Selected: <span id="selectedCount">@Model.SelectedCategories.Count</span> categories
+                </small>
+                @if (isAdmin)
+                {
+                    <br>
+                
+                    <small class="text-success"><i class="fas fa-crown"></i> Full Access</small>
+                }
+                else if (isHR)
+                {
+                    <br>
+                
+                    <small class="text-warning"><i class="fas fa-user-tie"></i> HR Access</small>
+                }
+                else
+                {
+                    <br>
+                
+                    <small class="text-info"><i class="fas fa-user"></i> Limited Access</small>
+                }
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Selected Categories Display -->
+@if (Model.SelectedCategories.Any())
+{
+    <div class="data-container">
+        <div class="data-title">
+            <i class="fas fa-tags text-info"></i>
+            Active Categories
+        </div>
+        <div id="selectedCategoriesDisplay">
+            @foreach (var category in Model.SelectedCategories)
+            {
+                <span class="category-badge">@category</span>
+            }
+        </div>
+    </div>
+}
+
+<!-- KPI Cards -->
+<div class="row" id="kpiCards">
+    <div class="col-md-3">
+        <div class="kpi-card primary">
+            <div class="kpi-icon text-primary"><i class="fas fa-users"></i></div>
+            <div class="kpi-label">Total Active Employees</div>
+            <div class="kpi-value" id="totalEmployees">
+                <span class="loading-text"><i class="fas fa-spinner refresh-indicator"></i> Loading...</span>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="kpi-card success">
+            <div class="kpi-icon text-success"><i class="fas fa-user-check"></i></div>
+            <div class="kpi-label">Present Today</div>
+            <div class="kpi-value" id="presentEmployees">
+                <span class="loading-text"><i class="fas fa-spinner refresh-indicator"></i> Loading...</span>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="kpi-card warning">
+            <div class="kpi-icon text-warning"><i class="fas fa-percentage"></i></div>
+            <div class="kpi-label">Attendance Rate</div>
+            <div class="kpi-value" id="attendancePercentage">
+                <span class="loading-text"><i class="fas fa-spinner refresh-indicator"></i> Loading...</span>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="kpi-card info">
+            <div class="kpi-icon text-info"><i class="fas fa-chart-line"></i></div>
+            <div class="kpi-label">Cost Efficiency</div>
+            <div class="kpi-value" id="costEfficiency">
+                <span class="loading-text"><i class="fas fa-spinner refresh-indicator"></i> Loading...</span>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Cost Analysis -->
+<div class="row">
+    <div class="col-md-8">
+        <div class="data-container">
+            <div class="data-title">
+                <i class="fas fa-chart-line text-primary"></i>
+                7-Day Cost & Attendance Trends
+                @if (!isAdmin && !isHR)
+                {
+                    <small class="text-muted">(Attendance data only)</small>
+                }
+            </div>
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Date</th>
+                        <th>Present</th>
+                        <th>Absent</th>
+                        <th>Attendance %</th>
+                        @if (isAdmin || isHR)
+                        {
+                            <th>Budgeted Cost</th>
+                            <th>Actual Cost</th>
+                            <th>Savings</th>
+                        }
+                    </tr>
+                </thead>
+                <tbody id="trendsTableBody">
+                    <tr>
+                        <td colspan="@(isAdmin || isHR ? "7" : "4")" class="text-center">
+                            <i class="fas fa-spinner refresh-indicator"></i> Loading trend data...
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="col-md-4">
+        <div class="data-container">
+            <div class="data-title">
+                <i class="fas fa-@(isAdmin || isHR ? "rupee-sign" : "chart-bar") text-success"></i>
+                Today's @(isAdmin || isHR ? "Cost" : "Attendance") Summary
+            </div>
+            <div id="costSummary">
+                @if (isAdmin || isHR)
+                {
+                    <div class="cost-metric">
+                        <span class="cost-label">Total Budgeted Cost</span>
+                        <span class="cost-value neutral" id="totalBudgetedCost">₹0</span>
+                    </div>
+                    <div class="cost-metric">
+                        <span class="cost-label">Actual Cost (Present)</span>
+                        <span class="cost-value neutral" id="totalActualCost">₹0</span>
+                    </div>
+                    <div class="cost-metric">
+                        <span class="cost-label">Cost Saving</span>
+                        <span class="cost-value positive" id="costSaving">₹0</span>
+                    </div>
+                    <div class="cost-metric">
+                        <span class="cost-label">Avg Cost/Employee</span>
+                        <span class="cost-value neutral" id="avgCostPerEmployee">₹0</span>
+                    </div>
+                }
+                else
+                {
+                    <div class="cost-metric">
+                        <span class="cost-label">Total Employees</span>
+                        <span class="cost-value neutral" id="summaryTotalEmployees">0</span>
+                    </div>
+                    <div class="cost-metric">
+                        <span class="cost-label">Present Today</span>
+                        <span class="cost-value positive" id="summaryPresentEmployees">0</span>
+                    </div>
+                    <div class="cost-metric">
+                        <span class="cost-label">Absent Today</span>
+                        <span class="cost-value negative" id="summaryAbsentEmployees">0</span>
+                    </div>
+                    <div class="cost-metric">
+                        <span class="cost-label">Attendance Rate</span>
+                        <span class="cost-value neutral" id="summaryAttendanceRate">0%</span>
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Category Breakdown -->
+<div class="data-container">
+    <div class="data-title">
+        <i class="fas fa-layer-group text-warning"></i>
+        Category-wise Breakdown
+    </div>
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th>Category</th>
+                <th>Total</th>
+                <th>Present</th>
+                <th>Absent</th>
+                <th>Attendance %</th>
+                @if (isAdmin || isHR)
+                {
+                    <th>Budgeted Cost</th>
+                    <th>Actual Cost</th>
+                    <th>Cost Saving</th>
+                    <th>Avg Cost/Employee</th>
+                }
+            </tr>
+        </thead>
+        <tbody id="categoryBreakdownBody">
+            <tr>
+                <td colspan="@(isAdmin || isHR ? "9" : "5")" class="text-center">
+                    <i class="fas fa-spinner refresh-indicator"></i> Loading category data...
+                </td>
+            </tr>
+        </tbody>
+    </table>
+</div>
+
+<script>
+    let currentCategories = @Html.Raw(Json.Serialize(Model.SelectedCategories));
+    const userRole = '@Model.UserRole';
+    const isAdmin = @isAdmin.ToString().ToLower();
+    const isHR = @isHR.ToString().ToLower();
+    const canSelectCategories = @canSelectCategories.ToString().ToLower();
+
+    document.addEventListener('DOMContentLoaded', function() {
+        console.log('Dashboard loaded for role:', userRole);
+        console.log('Initial categories:', currentCategories);
+
+        // Set up category change listeners only if user can select categories
+        if (canSelectCategories) {
+            setupCategoryListeners();
+        }
+
+        // Load initial data
+        updateDashboard();
+
+        // Company change listener (only if company select exists)
+        const companySelect = document.getElementById('companySelect');
+        if (companySelect && companySelect.tagName === 'SELECT') {
+            companySelect.addEventListener('change', function() {
+                updateDashboard();
+                loadAvailableCategories(); // Reload categories when company changes
+            });
+        }
+
+        // Auto-refresh every 5 minutes
+        setInterval(updateDashboard, 300000);
+    });
+
+    function setupCategoryListeners() {
+        const checkboxes = document.querySelectorAll('#categoryFilters input[type="checkbox"]');
+        checkboxes.forEach(checkbox => {
+            checkbox.addEventListener('change', function() {
+                updateSelectedCategories();
+            });
+        });
+    }
+
+    function updateSelectedCategories() {
+        if (!canSelectCategories) return;
+
+        const checkboxes = document.querySelectorAll('#categoryFilters input[type="checkbox"]:checked');
+        currentCategories = Array.from(checkboxes).map(cb => cb.value);
+
+        document.getElementById('selectedCount').textContent = currentCategories.length;
+
+        // Update selected categories display
+        const display = document.getElementById('selectedCategoriesDisplay');
+        if (display) {
+            display.innerHTML = currentCategories.map(cat =>
+                `<span class="category-badge">${cat}</span>`
+            ).join('');
+        }
+
+        console.log('Categories updated:', currentCategories);
+    }
+
+    function loadAvailableCategories() {
+        if (!canSelectCategories) return;
+
+        const companySelect = document.getElementById('companySelect');
+        const companyCode = companySelect && companySelect.tagName === 'SELECT' ? companySelect.value : companySelect.value || 0;
+
+        fetch(`/Dashboard/GetAvailableCategories?companyCode=${companyCode}`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                updateCategoryFilters(data.categories);
+            }
+        })
+        .catch(error => {
+            console.error('Error loading categories:', error);
+        });
+    }
+
+    function updateCategoryFilters(categories) {
+        const container = document.getElementById('categoryFilters');
+        if (!container || !canSelectCategories) return;
+
+        container.innerHTML = categories.map(category => `
+            <div class="category-checkbox">
+                <input type="checkbox" id="category_${category}" value="${category}"
+                       ${currentCategories.includes(category) ? 'checked' : ''}>
+                <label for="category_${category}">${category}</label>
+            </div>
+        `).join('');
+
+        setupCategoryListeners();
+    }
+
+    function updateDashboard() {
+        const companySelect = document.getElementById('companySelect');
+       
+        const companyCode = companySelect && companySelect.tagName === 'SELECT' ?
+                           companySelect.value :
+                           companySelect ? companySelect.value : 0;       
+        const updateIcon = document.getElementById('updateIcon');
+
+        console.log('Updating dashboard with categories:', currentCategories);
+
+        if (currentCategories.length === 0) {
+            showNotification('Please select at least one category', 'warning');
+            return;
+        }
+
+        // Show loading state
+        updateIcon.classList.add('refresh-indicator');
+
+        const requestData = {
+            companyCode: parseInt(companyCode),
+            categories: currentCategories,            
+            days: 7
+        };
+
+        fetch('/Dashboard/GetCategoryDashboardData', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(requestData)
+        })
+        .then(response => response.json())
+        .then(data => {
+            updateIcon.classList.remove('refresh-indicator');
+
+            if (data.success) {
+                console.log('Dashboard data received:', data);
+                updateKPICards(data.summary);
+                updateTrendsTable(data.trends);
+                updateCostSummary(data.summary);
+                updateCategoryBreakdown(data.categoryBreakdown);
+
+                document.getElementById('lastUpdated').textContent =
+                    `Last updated: ${data.lastUpdated}`;
+
+                showNotification('Dashboard updated successfully', 'success');
+            } else {
+                console.error('Dashboard error:', data);
+                showNotification('Error: ' + data.message, 'error');
+            }
+        })
+        .catch(error => {
+            updateIcon.classList.remove('refresh-indicator');
+            console.error('Error updating dashboard:', error);
+            showNotification('Network error: ' + error.message, 'error');
+        });
+    }
+
+    function updateKPICards(summary) {
+        document.getElementById('totalEmployees').textContent = summary.totalEmployees.toLocaleString();
+        document.getElementById('presentEmployees').textContent = summary.presentEmployees.toLocaleString();
+        document.getElementById('attendancePercentage').textContent = summary.attendancePercentage + '%';
+        document.getElementById('costEfficiency').textContent = summary.costEfficiency + '%';
+    }
+
+    function updateTrendsTable(trends) {
+        const tbody = document.getElementById('trendsTableBody');
+
+        if (!trends || trends.length === 0) {
+            const colspan = isAdmin || isHR ? 7 : 4;
+            tbody.innerHTML = `<tr><td colspan="${colspan}" class="text-center text-muted">No trend data available</td></tr>`;
+            return;
+        }
+
+        const rows = trends.map(trend => {
+            const attendanceClass = trend.attendancePercentage >= 85 ? 'text-success' :
+                                  trend.attendancePercentage >= 70 ? 'text-warning' : 'text-danger';
+
+            let row = `
+                <tr>
+                    <td><strong>${trend.dayName}</strong><br><small class="text-muted">${new Date(trend.date).toLocaleDateString()}</small></td>
+                    <td class="text-success">${trend.presentEmployees.toLocaleString()}</td>
+                    <td class="text-danger">${trend.absentEmployees.toLocaleString()}</td>
+                    <td class="${attendanceClass}">
+                        ${trend.attendancePercentage}%
+                        <div class="percentage-bar">
+                            <div class="percentage-fill" style="width: ${trend.attendancePercentage}%"></div>
+                        </div>
+                    </td>`;
+
+            if (isAdmin || isHR) {
+                row += `
+                    <td>₹${trend.budgetedCost.toLocaleString()}</td>
+                    <td>₹${trend.actualCost.toLocaleString()}</td>
+                    <td class="text-success">₹${trend.costSaving.toLocaleString()}</td>`;
+            }
+
+            row += '</tr>';
+            return row;
+        }).join('');
+
+        tbody.innerHTML = rows;
+    }
+
+    function updateCostSummary(summary) {
+        if (isAdmin || isHR) {
+            document.getElementById('totalBudgetedCost').textContent = '₹' + summary.totalBudgetedCost.toLocaleString();
+            document.getElementById('totalActualCost').textContent = '₹' + summary.totalActualCost.toLocaleString();
+            document.getElementById('costSaving').textContent = '₹' + summary.costSaving.toLocaleString();
+            document.getElementById('avgCostPerEmployee').textContent = '₹' + summary.avgCostPerEmployee.toLocaleString();
+        } else {
+            // Update attendance summary for non-privileged users
+            document.getElementById('summaryTotalEmployees').textContent = summary.totalEmployees.toLocaleString();
+            document.getElementById('summaryPresentEmployees').textContent = summary.presentEmployees.toLocaleString();
+            document.getElementById('summaryAbsentEmployees').textContent = summary.absentEmployees.toLocaleString();
+            document.getElementById('summaryAttendanceRate').textContent = summary.attendancePercentage + '%';
+        }
+    }
+
+    function updateCategoryBreakdown(categories) {
+        const tbody = document.getElementById('categoryBreakdownBody');
+
+        if (!categories || categories.length === 0) {
+            const colspan = isAdmin || isHR ? 9 : 5;
+            tbody.innerHTML = `<tr><td colspan="${colspan}" class="text-center text-muted">No category data available</td></tr>`;
+            return;
+        }
+
+        const rows = categories.map(cat => {
+            const attendanceClass = cat.attendancePercentage >= 85 ? 'text-success' :
+                                  cat.attendancePercentage >= 70 ? 'text-warning' : 'text-danger';
+
+            let row = `
+                <tr>
+                    <td><strong>${cat.category}</strong></td>
+                    <td>${cat.totalEmployees.toLocaleString()}</td>
+                    <td class="text-success">${cat.presentEmployees.toLocaleString()}</td>
+                    <td class="text-danger">${cat.absentEmployees.toLocaleString()}</td>
+                    <td class="${attendanceClass}">${cat.attendancePercentage}%</td>`;
+
+            if (isAdmin || isHR) {
+                row += `
+                    <td>₹${cat.budgetedCost.toLocaleString()}</td>
+                    <td>₹${cat.actualCost.toLocaleString()}</td>
+                    <td class="text-success">₹${cat.costSaving.toLocaleString()}</td>
+                    <td>₹${Math.round(cat.avgCostPerEmployee).toLocaleString()}</td>`;
+            }
+
+            row += '</tr>';
+            return row;
+        }).join('');
+
+        tbody.innerHTML = rows;
+    }
+
+    function showNotification(message, type) {
+        // Remove existing notifications
+        document.querySelectorAll('.notification').forEach(n => n.remove());
+
+        const alertClass = type === 'success' ? 'alert-success' :
+                          type === 'warning' ? 'alert-warning' : 'alert-danger';
+
+        const notification = document.createElement('div');
+        notification.className = `alert ${alertClass} position-fixed notification`;
+        notification.style.cssText = 'top: 20px; right: 20px; z-index: 9999; min-width: 300px;';
+        notification.innerHTML = `
+            <i class="fas fa-${type === 'success' ? 'check-circle' : type === 'warning' ? 'exclamation-triangle' : 'exclamation-circle'}"></i>
+            ${message}
+            <button type="button" class="btn-close float-end" onclick="this.parentElement.remove()"></button>
+        `;
+
+        document.body.appendChild(notification);
+
+        setTimeout(() => {
+            if (notification.parentElement) {
+                notification.remove();
+            }
+        }, 5000);
+    }
+
+    console.log('Dashboard JavaScript loaded successfully for role:', userRole);
+</script>

@@ -1,0 +1,439 @@
+﻿@model DepartmentAttendanceViewModel
+
+@{
+    ViewData["Title"] = "Department Attendance Report";
+    Layout = "~/Views/Shared/_Layout.cshtml";
+}
+
+<style>
+    .department-accordion {
+        margin-bottom: 20px;
+    }
+
+    .department-header {
+        background-color: #f8f9fa;
+        padding: 15px;
+        border: 1px solid #dee2e6;
+        border-radius: 5px;
+        cursor: pointer;
+        position: relative;
+        font-weight: bold;
+        transition: background-color 0.3s;
+    }
+
+        .department-header:hover {
+            background-color: #e9ecef;
+        }
+
+        .department-header .toggle-icon {
+            position: absolute;
+            right: 15px;
+            top: 50%;
+            transform: translateY(-50%);
+            transition: transform 0.3s;
+        }
+
+        .department-header.active .toggle-icon {
+            transform: translateY(-50%) rotate(180deg);
+        }
+
+    .department-content {
+        display: none;
+        padding: 20px;
+        border: 1px solid #dee2e6;
+        border-top: none;
+        border-radius: 0 0 5px 5px;
+        background-color: #fff;
+    }
+
+        .department-content.active {
+            display: block;
+        }
+
+    .main-section-table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-bottom: 20px;
+    }
+
+        .main-section-table th,
+        .main-section-table td {
+            border: 1px solid #dee2e6;
+            padding: 8px;
+            text-align: center;
+        }
+
+        .main-section-table th {
+            background-color: #007bff;
+            color: white;
+            font-weight: bold;
+        }
+
+        .main-section-table .section-header {
+            background-color: #6c757d;
+            color: white;
+            font-weight: bold;
+        }
+
+    .now-details {
+        margin-top: 15px;
+        padding: 15px;
+        background-color: #f8f9fa;
+        border-radius: 5px;
+    }
+
+    .now-table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 10px;
+    }
+
+        .now-table th,
+        .now-table td {
+            border: 1px solid #dee2e6;
+            padding: 6px;
+            text-align: center;
+        }
+
+        .now-table th {
+            background-color: #17a2b8;
+            color: white;
+            font-size: 14px;
+        }
+
+        .now-table td {
+            font-size: 13px;
+        }
+
+    .totals-row {
+        background-color: #e9ecef;
+        font-weight: bold;
+    }
+
+    .grand-totals {
+        background-color: #000000;
+        color: white;
+        padding: 15px;
+        border-radius: 5px;
+        margin-bottom: 20px;
+    }
+
+    .filters {
+        background-color: #f8f9fa;
+        padding: 20px;
+        border-radius: 5px;
+        margin-bottom: 20px;
+    }
+
+    .add-department-btn {
+        margin-left: 10px;
+    }
+
+    .present-count {
+        color: #28a745;
+        font-weight: bold;
+    }
+
+    .absent-count {
+        color: #dc3545;
+        font-weight: bold;
+    }
+</style>
+
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <h2>Department Attendance Report</h2>
+
+           <!-- Filters Section -->
+            <div class="filters">
+                <form method="get" action="/Home/DepartmentAttendance" id="reportForm">
+                    <div class="row">
+                        <div class="col-md-3">
+                            <label for="reportDate">Report Date:</label>
+                            <input type="date" name="reportDate" id="reportDate"
+                                   value="@Model.ReportDate.ToString("yyyy-MM-dd")"
+                                   class="form-control" />
+                        </div>
+
+                        <!-- Show company dropdown only for Admin users -->
+                        @if (ViewBag.UserRole == "Admin")
+                        {
+                            <div class="col-md-3">
+                                <label for="companyCode">Company:</label>
+                                @Html.DropDownList("companyCode", Model.CompanySelectList,
+                                new { @class = "form-control", id = "companyCode" })
+                        </div>
+                                                }
+
+                        <div class="col-md-3">
+                            <label for="department">Department:</label>
+                            @Html.DropDownList("department", Model.DepartmentSelectList,
+                            new { @class = "form-control", id = "department" })
+                        </div>
+                        <div class="col-md-3">
+                            <label>&nbsp;</label>
+                            <br />
+                            <button type="submit" class="btn btn-primary">Generate Report</button>
+                           @*  @if (ViewBag.UserRole == "Admin" || ViewBag.UserRole == "HR")
+                            {
+                                <button type="button" class="btn btn-success add-department-btn"
+                                        onclick="showAddDepartmentModal()">
+                                    Add Department
+                                </button>
+                            } *@
+                        </div>
+                    </div>
+                </form>
+            </div>
+
+            <!-- Grand Totals Section -->
+            <div class="grand-totals">
+                <div class="row text-center">
+                    <div class="col-md-2">
+                        <strong>ATTACHER</strong><br />
+                        <span class="present-count">@Model.GrandTotals.AttacherPresent</span> /
+                        <span class="absent-count">@Model.GrandTotals.AttacherAbsent</span>
+                        <br /><small>Total: @Model.GrandTotals.AttacherTotal</small>
+                    </div>
+                    <div class="col-md-2">
+                        <strong>FOLDER</strong><br />
+                        <span class="present-count">@Model.GrandTotals.FolderPresent</span> /
+                        <span class="absent-count">@Model.GrandTotals.FolderAbsent</span>
+                        <br /><small>Total: @Model.GrandTotals.FolderTotal</small>
+                    </div>
+                    <div class="col-md-2">
+                        <strong>OTHERS</strong><br />
+                        <span class="present-count">@Model.GrandTotals.OthersPresent</span> /
+                        <span class="absent-count">@Model.GrandTotals.OthersAbsent</span>
+                        <br /><small>Total: @Model.GrandTotals.OthersTotal</small>
+                    </div>
+                    <div class="col-md-2">
+                        <strong>SKIVER</strong><br />
+                        <span class="present-count">@Model.GrandTotals.SkiverPresent</span> /
+                        <span class="absent-count">@Model.GrandTotals.SkiverAbsent</span>
+                        <br /><small>Total: @Model.GrandTotals.SkiverTotal</small>
+                    </div>
+                    <div class="col-md-2">
+                        <strong>STITCHER</strong><br />
+                        <span class="present-count">@Model.GrandTotals.StitcherPresent</span> /
+                        <span class="absent-count">@Model.GrandTotals.StitcherAbsent</span>
+                        <br /><small>Total: @Model.GrandTotals.StitcherTotal</small>
+                    </div>
+                    <div class="col-md-2">
+                        <strong>GRAND TOTAL</strong><br />
+                        <span class="present-count">@Model.GrandTotals.TotalPresent</span> /
+                        <span class="absent-count">@Model.GrandTotals.TotalAbsent</span>
+                        <br /><small>Total: @Model.GrandTotals.GrandTotal</small>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Department Accordion Section -->
+            @foreach (var department in Model.Departments)
+            {
+                <div class="department-accordion">
+                    <div class="department-header" onclick="toggleDepartment(this)">
+                        <span>@department.DepartmentName</span>
+                        <span class="toggle-icon">▼</span>
+                    </div>
+                    <div class="department-content">
+
+                        <!-- Department Totals -->
+                        <table class="main-section-table">
+                            <thead>
+                                <tr>
+                                    <th>Main Section</th>
+                                    <th>ATTACHER</th>
+                                    <th>FOLDER</th>
+                                    <th>OTHERS</th>
+                                    <th>SKIVER</th>
+                                    <th>STITCHER</th>
+                                    <th>Total</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr class="totals-row">
+                                    <td><strong>Present</strong></td>
+                                    <td class="present-count">@department.DepartmentTotals.AttacherPresent</td>
+                                    <td class="present-count">@department.DepartmentTotals.FolderPresent</td>
+                                    <td class="present-count">@department.DepartmentTotals.OthersPresent</td>
+                                    <td class="present-count">@department.DepartmentTotals.SkiverPresent</td>
+                                    <td class="present-count">@department.DepartmentTotals.StitcherPresent</td>
+                                    <td class="present-count">@department.DepartmentTotals.TotalPresent</td>
+                                </tr>
+                                <tr class="totals-row">
+                                    <td><strong>Absent</strong></td>
+                                    <td class="absent-count">@department.DepartmentTotals.AttacherAbsent</td>
+                                    <td class="absent-count">@department.DepartmentTotals.FolderAbsent</td>
+                                    <td class="absent-count">@department.DepartmentTotals.OthersAbsent</td>
+                                    <td class="absent-count">@department.DepartmentTotals.SkiverAbsent</td>
+                                    <td class="absent-count">@department.DepartmentTotals.StitcherAbsent</td>
+                                    <td class="absent-count">@department.DepartmentTotals.TotalAbsent</td>
+                                </tr>
+                                <tr class="totals-row">
+                                    <td><strong>Total</strong></td>
+                                    <td>@department.DepartmentTotals.AttacherTotal</td>
+                                    <td>@department.DepartmentTotals.FolderTotal</td>
+                                    <td>@department.DepartmentTotals.OthersTotal</td>
+                                    <td>@department.DepartmentTotals.SkiverTotal</td>
+                                    <td>@department.DepartmentTotals.StitcherTotal</td>
+                                    <td>@department.DepartmentTotals.GrandTotal</td>
+                                </tr>
+                            </tbody>
+                        </table>
+
+                        <!-- NOW (Nature of Work) Details -->
+                        @foreach (var mainSection in department.MainSections)
+                        {
+                            <div class="now-details">
+                                <h5>@mainSection.MainSectionName - Section Breakdown</h5>
+                                <table class="now-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Section</th>
+                                            <th>Present</th>
+                                            <th>Absent</th>
+                                            <th>Total</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        @foreach (var nowItem in mainSection.NOWData)
+                                        {
+                                            <tr>
+                                                <td>@nowItem.NOWName</td>
+                                                <td class="present-count">@nowItem.Present</td>
+                                                <td class="absent-count">@nowItem.Absent</td>
+                                                <td>@nowItem.Total</td>
+                                            </tr>
+                                        }
+                                        <tr class="totals-row">
+                                            <td><strong>Section Total</strong></td>
+                                            <td class="present-count"><strong>@mainSection.TotalPresent</strong></td>
+                                            <td class="absent-count"><strong>@mainSection.TotalAbsent</strong></td>
+                                            <td><strong>@mainSection.Total</strong></td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        }
+                    </div>
+                </div>
+            }
+
+            @if (!Model.Departments.Any())
+            {
+                <div class="alert alert-info">
+                    <strong>No attendance data found for the selected date and company.</strong>
+                </div>
+            }
+        </div>
+    </div>
+</div>
+
+<!-- Add Department Modal -->
+<div class="modal fade" id="addDepartmentModal" tabindex="-1" role="dialog">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Add New Department</h5>
+                <button type="button" class="close" data-dismiss="modal">
+                    <span>&times;</span>
+                </button>
+            </div>
+            <div class="modal-body">
+                <form id="addDepartmentForm">
+                    <div class="form-group">
+                        <label for="departmentName">Department Name:</label>
+                        <input type="text" class="form-control" id="departmentName" name="departmentName" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="departmentCompany">Company:</label>
+                        @Html.DropDownListFor(m => m.SelectedCompanyCode, Model.CompanySelectList,
+                        new { @class = "form-control", id = "departmentCompany", name = "companyCode" })
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" onclick="addDepartment()">Add Department</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    function toggleDepartment(element) {
+        const content = element.nextElementSibling;
+        const icon = element.querySelector('.toggle-icon');
+
+        if (content.classList.contains('active')) {
+            content.classList.remove('active');
+            element.classList.remove('active');
+        } else {
+            content.classList.add('active');
+            element.classList.add('active');
+        }
+    }
+
+    function showAddDepartmentModal() {
+        $('#addDepartmentModal').modal('show');
+    }
+
+    function addDepartment() {
+        const departmentName = document.getElementById('departmentName').value;
+        const companyCode = document.getElementById('departmentCompany').value;
+
+        if (!departmentName.trim()) {
+            alert('Please enter a department name');
+            return;
+        }
+
+        // AJAX call to add department
+        fetch('/Home/AddDepartment', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                departmentName: departmentName,
+                companyCode: parseInt(companyCode)
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                alert('Department added successfully!');
+                $('#addDepartmentModal').modal('hide');
+                location.reload(); // Refresh the page to show new department
+            } else {
+                alert('Error: ' + data.message);
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('An error occurred while adding the department');
+        });
+    }
+
+    // Auto-refresh functionality
+    function autoRefresh() {
+        const currentUrl = window.location.href;
+        setTimeout(function() {
+            window.location.href = currentUrl;
+        }, 300000); // Refresh every 5 minutes
+    }
+
+    // Initialize auto-refresh
+    autoRefresh();
+</script>
+
+<!-- Loading Spinner -->
+<div id="loadingSpinner" style="display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 9999;">
+    <div class="spinner-border text-primary" role="status">
+        <span class="sr-only">Loading...</span>
+    </div>
+</div>
+
+<!-- Include the separate JavaScript file -->
+<script src="~/js/DepartmentAttendance.js"></script>
