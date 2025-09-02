@@ -632,6 +632,90 @@ namespace HRManagementSystem.Data
         }
 
 
+        // Add this method to your AttendanceRepository class
+
+        // Add this method to your AttendanceRepository class
+
+        public async Task<List<ShiftAttendanceStats>> GetShiftAttendanceStatsAsync(int companyCode)
+        {
+            using var newAttendanceConnection = new SqlConnection(_newAttendanceConnectionString);
+
+            // Get shift data directly from DailyAttendance table
+            var shiftStatsSql = @"
+        WITH ShiftAttendanceData AS (
+            SELECT 
+                CASE 
+                    WHEN UPPER(LTRIM(RTRIM(ISNULL([Shift], 'G')))) = 'F' OR UPPER(LTRIM(RTRIM(ISNULL([Shift], 'G')))) = 'FIRST' THEN 'F'
+                    WHEN UPPER(LTRIM(RTRIM(ISNULL([Shift], 'G')))) = 'G' OR UPPER(LTRIM(RTRIM(ISNULL([Shift], 'G')))) = 'GENERAL' THEN 'G' 
+                    WHEN UPPER(LTRIM(RTRIM(ISNULL([Shift], 'G')))) = 'S' OR UPPER(LTRIM(RTRIM(ISNULL([Shift], 'G')))) = 'SECOND' THEN 'S'
+                    ELSE 'G' -- Default to General if shift is null or unrecognized
+                END as ShiftCode,
+                AttendanceStatus
+            FROM DailyAttendance
+            WHERE AttendanceDate = @AttendanceDate
+              AND ISNULL(longabsent, 0) = 0
+              AND Category NOT IN ('STAFF','CONSULTANT')
+              AND (@CompanyCode = 0 OR CompanyCode = @CompanyCode)
+        ),
+        ShiftStats AS (
+            SELECT 
+                ShiftCode,
+                COUNT(*) as TotalEmployees,
+                SUM(CASE WHEN AttendanceStatus = 'Present' THEN 1 ELSE 0 END) as PresentEmployees,
+                SUM(CASE WHEN AttendanceStatus = 'Absent' OR AttendanceStatus IS NULL THEN 1 ELSE 0 END) as AbsentEmployees
+            FROM ShiftAttendanceData
+            GROUP BY ShiftCode
+        )
+        SELECT 
+            ss.ShiftCode,
+            CASE 
+                WHEN ss.ShiftCode = 'F' THEN 'First Shift'
+                WHEN ss.ShiftCode = 'G' THEN 'General Shift'  
+                WHEN ss.ShiftCode = 'S' THEN 'Second Shift'
+                ELSE 'Unknown Shift'
+            END as ShiftName,
+            ss.TotalEmployees,
+            ss.PresentEmployees,
+            ss.AbsentEmployees,
+            CASE 
+                WHEN ss.TotalEmployees > 0 
+                THEN CAST(ROUND((ss.PresentEmployees * 100.0) / ss.TotalEmployees, 2) AS DECIMAL(5,2))
+                ELSE 0 
+            END as AttendancePercentage
+        FROM ShiftStats ss
+        ORDER BY ss.ShiftCode";
+
+            var queryParams = new
+            {
+                CompanyCode = companyCode,
+                AttendanceDate = DateTime.Today
+            };
+
+            var result = await newAttendanceConnection.QueryAsync<ShiftAttendanceStats>(shiftStatsSql, queryParams);
+
+            // Ensure all three shifts are present even if no employees
+            var allShifts = new List<ShiftAttendanceStats>
+    {
+        new ShiftAttendanceStats { ShiftCode = "F", ShiftName = "First Shift", TotalEmployees = 0, PresentEmployees = 0, AbsentEmployees = 0, AttendancePercentage = 0 },
+        new ShiftAttendanceStats { ShiftCode = "G", ShiftName = "General Shift", TotalEmployees = 0, PresentEmployees = 0, AbsentEmployees = 0, AttendancePercentage = 0 },
+        new ShiftAttendanceStats { ShiftCode = "S", ShiftName = "Second Shift", TotalEmployees = 0, PresentEmployees = 0, AbsentEmployees = 0, AttendancePercentage = 0 }
+    };
+
+            // Update with actual data
+            foreach (var shift in result)
+            {
+                var existingShift = allShifts.FirstOrDefault(s => s.ShiftCode == shift.ShiftCode);
+                if (existingShift != null)
+                {
+                    existingShift.TotalEmployees = shift.TotalEmployees;
+                    existingShift.PresentEmployees = shift.PresentEmployees;
+                    existingShift.AbsentEmployees = shift.AbsentEmployees;
+                    existingShift.AttendancePercentage = shift.AttendancePercentage;
+                }
+            }
+
+            return allShifts;
+        }
 
     }
 }

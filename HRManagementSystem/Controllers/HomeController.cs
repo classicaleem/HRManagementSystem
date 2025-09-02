@@ -240,28 +240,34 @@ namespace HRManagementSystem.Controllers
             return View(report);
         }
 
-        [HttpPost]
-        public async Task<IActionResult> AddDepartment(string departmentName, int companyCode)
+        #endregion
+
+        [HttpGet]
+        public async Task<IActionResult> GetShiftAttendanceStats(int companyCode = 0)
         {
             try
             {
-                // Check if user has permission
                 var userRole = User.FindFirst(ClaimTypes.Role)?.Value;
-                if (userRole != "Admin" && userRole != "HR")
+                var userCompanyCode = int.TryParse(User.FindFirst("CompanyCode")?.Value, out var userComp) ? userComp : 0;
+
+                // Role-based access control
+                if (userRole != "Admin" && companyCode != userCompanyCode)
                 {
-                    return Json(new { success = false, message = "You don't have permission to add departments." });
+                    companyCode = userCompanyCode;
                 }
 
-                // Add department logic here - you'll need to implement this in your repository
-                // await _companyRepository.AddDepartmentAsync(departmentName, companyCode);
-
-                return Json(new { success = true, message = "Department added successfully." });
+                var shiftStats = await _attendanceRepository.GetShiftAttendanceStatsAsync(companyCode);
+                return Json(new
+                {
+                    success = true,
+                    shifts = shiftStats,
+                    lastUpdated = DateTime.Now.ToString("HH:mm:ss")
+                });
             }
             catch (Exception ex)
             {
-                return Json(new { success = false, message = $"Error adding department: {ex.Message}" });
+                return Json(new { success = false, message = ex.Message });
             }
         }
-        #endregion
     }
 }

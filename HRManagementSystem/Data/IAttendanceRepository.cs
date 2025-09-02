@@ -8,6 +8,7 @@ namespace HRManagementSystem.Data
         Task<AttendanceReportViewModel> GetDailyAttendanceReportAsync(DateTime reportDate, int companyCode);
         Task<List<CompanyAttendanceStats>> GetCompaniesWithAttendanceAsync(DateTime reportDate);
         Task<DepartmentAttendanceViewModel> GetDepartmentAttendanceReportAsync(DateTime reportDate, int companyCode, string department = "ALL");
+        Task<List<ShiftAttendanceStats>> GetShiftAttendanceStatsAsync(int companyCode);
 
     }
 }
