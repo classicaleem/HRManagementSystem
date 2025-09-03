@@ -17,7 +17,7 @@ namespace HRManagementSystem.Data
             _newAttendanceConnectionString = configuration.GetConnectionString("NewAttendanceConnection");
         }
 
-        public async Task<bool> ProcessDailyAttendanceAsync(DateTime processDate)
+        public async Task<bool> ProcessDailyAttendanceAsyncOld(DateTime processDate)
         {
             try
             {
@@ -128,6 +128,147 @@ namespace HRManagementSystem.Data
                                 Section = employee.MainSection,
                                 PerDayCTC = employee.PerDayCTC,
                                 LongAbsent = employee.LongAbsent,
+                                AttendanceDate = processDate.Date,
+                                FirstPunchTime = firstPunch?.FirstPunchTime,
+                                AttendanceStatus = firstPunch != null ? "Present" : "Absent",
+                                LastUpdated = DateTime.Now
+                            });
+                        }
+
+                        processedCount++;
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine($"Error processing employee {employee.EmployeeCode}: {ex.Message}");
+                        errorCount++;
+                    }
+                }
+
+                Console.WriteLine($"Processing completed: {processedCount} successful, {errorCount} errors");
+                return errorCount == 0;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error processing daily attendance: {ex.Message}");
+                return false;
+            }
+        }
+
+        public async Task<bool> ProcessDailyAttendanceAsync(DateTime processDate)
+        {
+            try
+            {
+                using var hrConnection = new SqlConnection(_hrConnectionString);
+                using var attendanceConnection = new SqlConnection(_attendanceConnectionString);
+                using var newAttendanceConnection = new SqlConnection(_newAttendanceConnectionString);
+
+                // Get first punch of each employee for the process date
+                var firstPunchSql = @"
+            WITH FirstPunch AS (
+                SELECT Employeecode, 
+                       MIN(LogDateTime) as FirstPunchDateTime,
+                       MIN(LogTime) as FirstPunchTime
+                FROM Parellellogs 
+                WHERE LogDate = @ProcessDate 
+                GROUP BY Employeecode
+            )
+            SELECT Employeecode, FirstPunchDateTime, FirstPunchTime
+            FROM FirstPunch";
+
+                var firstPunches = await attendanceConnection.QueryAsync(firstPunchSql, new { ProcessDate = processDate.Date });
+
+                // Get all employees from HR master - INCLUDING LONGABSENT AND SHIFT
+                var employeesSql = @"
+            SELECT CompanyCode, EmployeeCode, EmployeeName, Punchno, Dept, Desig, Category,
+                   ISNULL(MainSection, 'OTHERS') as MainSection,
+                   ISNULL(PerDayCTC, 0) as PerDayCTC,
+                   ISNULL(LongAbsent, 0) as LongAbsent,
+                   ISNULL(Shift, 'G') as Shift
+            FROM vw_AttendanceEmployeeMaster 
+            WHERE EmployeeStatus = 'ACTIVE'";
+
+                var employees = await hrConnection.QueryAsync<Employee>(employeesSql);
+
+                // Process each employee individually with error handling
+                var processedCount = 0;
+                var errorCount = 0;
+
+                foreach (var employee in employees.GroupBy(e => new { e.CompanyCode, e.EmployeeCode }).Select(g => g.First()))
+                {
+                    try
+                    {
+                        var firstPunch = firstPunches.FirstOrDefault(fp => fp.Employeecode == employee.PunchNo);
+
+                        // Check if record already exists
+                        var existsQuery = @"
+                    SELECT COUNT(*) FROM DailyAttendance 
+                    WHERE CompanyCode = @CompanyCode 
+                      AND EmployeeCode = @EmployeeCode 
+                      AND AttendanceDate = @AttendanceDate";
+
+                        var exists = await newAttendanceConnection.QuerySingleAsync<int>(existsQuery, new
+                        {
+                            CompanyCode = employee.CompanyCode,
+                            EmployeeCode = employee.EmployeeCode,
+                            AttendanceDate = processDate.Date
+                        });
+
+                        if (exists > 0)
+                        {
+                            // Update existing record - INCLUDING LONGABSENT AND SHIFT
+                            var updateSql = @"
+                        UPDATE DailyAttendance 
+                        SET FirstPunchTime = @FirstPunchTime, 
+                            AttendanceStatus = @AttendanceStatus, 
+                            Designation = @Designation,
+                            Category = @Category,
+                            Section = @Section,
+                            PerDayCTC = @PerDayCTC,
+                            LongAbsent = @LongAbsent,
+                            Shift = @Shift,
+                            LastUpdated = @LastUpdated
+                        WHERE CompanyCode = @CompanyCode 
+                          AND EmployeeCode = @EmployeeCode 
+                          AND AttendanceDate = @AttendanceDate";
+
+                            await newAttendanceConnection.ExecuteAsync(updateSql, new
+                            {
+                                CompanyCode = employee.CompanyCode,
+                                EmployeeCode = employee.EmployeeCode,
+                                AttendanceDate = processDate.Date,
+                                FirstPunchTime = firstPunch?.FirstPunchTime,
+                                AttendanceStatus = firstPunch != null ? "Present" : "Absent",
+                                Designation = employee.Desig,
+                                Category = employee.Category,
+                                Section = employee.MainSection,
+                                PerDayCTC = employee.PerDayCTC,
+                                LongAbsent = employee.LongAbsent,
+                                Shift = employee.Shift,
+                                LastUpdated = DateTime.Now
+                            });
+                        }
+                        else
+                        {
+                            // Insert new record - INCLUDING LONGABSENT AND SHIFT
+                            var insertSql = @"
+                        INSERT INTO DailyAttendance (CompanyCode, EmployeeCode, PunchNo, EmployeeName, 
+                                                   Department, Designation, Category, Section, PerDayCTC, LongAbsent, Shift, AttendanceDate, FirstPunchTime, AttendanceStatus, LastUpdated)
+                        VALUES (@CompanyCode, @EmployeeCode, @PunchNo, @EmployeeName, 
+                                @Department, @Designation, @Category, @Section, @PerDayCTC, @LongAbsent, @Shift, @AttendanceDate, @FirstPunchTime, @AttendanceStatus, @LastUpdated)";
+
+                            await newAttendanceConnection.ExecuteAsync(insertSql, new
+                            {
+                                CompanyCode = employee.CompanyCode,
+                                EmployeeCode = employee.EmployeeCode,
+                                PunchNo = employee.PunchNo,
+                                EmployeeName = employee.EmployeeName,
+                                Department = employee.Dept,
+                                Designation = employee.Desig,
+                                Category = employee.Category,
+                                Section = employee.MainSection,
+                                PerDayCTC = employee.PerDayCTC,
+                                LongAbsent = employee.LongAbsent,
+                                Shift = employee.Shift,
                                 AttendanceDate = processDate.Date,
                                 FirstPunchTime = firstPunch?.FirstPunchTime,
                                 AttendanceStatus = firstPunch != null ? "Present" : "Absent",
