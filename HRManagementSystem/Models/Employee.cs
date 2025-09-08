@@ -16,6 +16,7 @@
         public string MainSection { get; set; }
         public string PerDayCTC { get; set; }
         public bool LongAbsent { get; set; } = false;
+        public bool Layoff { get; set; } = false;
         public string Shift { get; set; }
 
     }

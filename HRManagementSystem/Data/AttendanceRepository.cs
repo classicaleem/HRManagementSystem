@@ -162,7 +162,7 @@ namespace HRManagementSystem.Data
                 using var attendanceConnection = new SqlConnection(_attendanceConnectionString);
                 using var newAttendanceConnection = new SqlConnection(_newAttendanceConnectionString);
 
-                // Get first punch of each employee for the process date
+                // Get first punch data
                 var firstPunchSql = @"
             WITH FirstPunch AS (
                 SELECT Employeecode, 
@@ -177,19 +177,19 @@ namespace HRManagementSystem.Data
 
                 var firstPunches = await attendanceConnection.QueryAsync(firstPunchSql, new { ProcessDate = processDate.Date });
 
-                // Get all employees from HR master - INCLUDING LONGABSENT AND SHIFT
+                // Get all employees including LAYOFF status
                 var employeesSql = @"
             SELECT CompanyCode, EmployeeCode, EmployeeName, Punchno, Dept, Desig, Category,
                    ISNULL(MainSection, 'OTHERS') as MainSection,
                    ISNULL(PerDayCTC, 0) as PerDayCTC,
                    ISNULL(LongAbsent, 0) as LongAbsent,
-                   ISNULL(Shift, 'G') as Shift
+                   ISNULL(Shift, 'G') as Shift,
+                   ISNULL(Layoff, 0) as Layoff
             FROM vw_AttendanceEmployeeMaster 
             WHERE EmployeeStatus = 'ACTIVE'";
 
                 var employees = await hrConnection.QueryAsync<Employee>(employeesSql);
 
-                // Process each employee individually with error handling
                 var processedCount = 0;
                 var errorCount = 0;
 
@@ -199,7 +199,6 @@ namespace HRManagementSystem.Data
                     {
                         var firstPunch = firstPunches.FirstOrDefault(fp => fp.Employeecode == employee.PunchNo);
 
-                        // Check if record already exists
                         var existsQuery = @"
                     SELECT COUNT(*) FROM DailyAttendance 
                     WHERE CompanyCode = @CompanyCode 
@@ -215,7 +214,6 @@ namespace HRManagementSystem.Data
 
                         if (exists > 0)
                         {
-                            // Update existing record - INCLUDING LONGABSENT AND SHIFT
                             var updateSql = @"
                         UPDATE DailyAttendance 
                         SET FirstPunchTime = @FirstPunchTime, 
@@ -226,6 +224,7 @@ namespace HRManagementSystem.Data
                             PerDayCTC = @PerDayCTC,
                             LongAbsent = @LongAbsent,
                             Shift = @Shift,
+                            Layoff = @Layoff,
                             LastUpdated = @LastUpdated
                         WHERE CompanyCode = @CompanyCode 
                           AND EmployeeCode = @EmployeeCode 
@@ -244,17 +243,21 @@ namespace HRManagementSystem.Data
                                 PerDayCTC = employee.PerDayCTC,
                                 LongAbsent = employee.LongAbsent,
                                 Shift = employee.Shift,
+                                Layoff = employee.Layoff, // NEW
                                 LastUpdated = DateTime.Now
                             });
                         }
                         else
                         {
-                            // Insert new record - INCLUDING LONGABSENT AND SHIFT
                             var insertSql = @"
                         INSERT INTO DailyAttendance (CompanyCode, EmployeeCode, PunchNo, EmployeeName, 
-                                                   Department, Designation, Category, Section, PerDayCTC, LongAbsent, Shift, AttendanceDate, FirstPunchTime, AttendanceStatus, LastUpdated)
+                                                   Department, Designation, Category, Section, PerDayCTC, 
+                                                   LongAbsent, Shift, Layoff, AttendanceDate, FirstPunchTime, 
+                                                   AttendanceStatus, LastUpdated)
                         VALUES (@CompanyCode, @EmployeeCode, @PunchNo, @EmployeeName, 
-                                @Department, @Designation, @Category, @Section, @PerDayCTC, @LongAbsent, @Shift, @AttendanceDate, @FirstPunchTime, @AttendanceStatus, @LastUpdated)";
+                                @Department, @Designation, @Category, @Section, @PerDayCTC, 
+                                @LongAbsent, @Shift, @Layoff, @AttendanceDate, @FirstPunchTime, 
+                                @AttendanceStatus, @LastUpdated)";
 
                             await newAttendanceConnection.ExecuteAsync(insertSql, new
                             {
@@ -269,6 +272,7 @@ namespace HRManagementSystem.Data
                                 PerDayCTC = employee.PerDayCTC,
                                 LongAbsent = employee.LongAbsent,
                                 Shift = employee.Shift,
+                                Layoff = employee.Layoff, // NEW
                                 AttendanceDate = processDate.Date,
                                 FirstPunchTime = firstPunch?.FirstPunchTime,
                                 AttendanceStatus = firstPunch != null ? "Present" : "Absent",
@@ -295,7 +299,7 @@ namespace HRManagementSystem.Data
             }
         }
 
-        public async Task<AttendanceReportViewModel> GetDailyAttendanceReportAsync(DateTime reportDate, int companyCode)
+        public async Task<AttendanceReportViewModel> GetDailyAttendanceReportAsyncOLD(DateTime reportDate, int companyCode)
         {
             using var connection = new SqlConnection(_newAttendanceConnectionString);
 
@@ -375,7 +379,104 @@ namespace HRManagementSystem.Data
                 AbsentEmployees = reportData.Sum(r => r.AbsentEmployees)
             };
         }
+        public async Task<AttendanceReportViewModel> GetDailyAttendanceReportAsync(DateTime reportDate, int companyCode)
+        {
+            using var connection = new SqlConnection(_newAttendanceConnectionString);
 
+            var sql = @"
+                WITH HierarchyAttendance AS (
+                    SELECT 
+                        COALESCE(dh.ParentDesignation, da.Department, 'Unassigned Department') as ParentDesignation,
+                        COALESCE(dh.SubDesignation, da.Designation, 'Unassigned Designation') as SubDesignation,
+                        COALESCE(da.Category, 'Unknown') as Category,
+                        da.AttendanceStatus,
+                        ISNULL(da.Layoff, 0) as Layoff,
+                        COUNT(*) as EmployeeCount
+                    FROM DailyAttendance da
+                    LEFT JOIN DesignationHierarchy dh ON dh.SubDesignation = da.Designation 
+                                                      AND dh.ParentDesignation = da.Department
+                                                      AND dh.IsActive = 1
+                    WHERE da.AttendanceDate = @ReportDate
+                          AND (@CompanyCode = 0 OR da.CompanyCode = @CompanyCode)
+                          AND ISNULL(da.LongAbsent, 0) = 0
+                    GROUP BY COALESCE(dh.ParentDesignation, da.Department, 'Unassigned Department'), 
+                             COALESCE(dh.SubDesignation, da.Designation, 'Unassigned Designation'),
+                             COALESCE(da.Category, 'Unknown'),
+                             da.AttendanceStatus,
+                             ISNULL(da.Layoff, 0)
+                )
+                SELECT 
+                    ha.ParentDesignation, 
+                    ha.SubDesignation,
+                    SUM(CASE WHEN ha.AttendanceStatus = 'Present' AND ha.Layoff = 0 THEN ha.EmployeeCount ELSE 0 END) as Present,
+                    SUM(CASE WHEN ha.AttendanceStatus = 'Absent' AND ha.Layoff = 0 THEN ha.EmployeeCount ELSE 0 END) as Absent,
+                    SUM(CASE WHEN ha.Layoff = 1 THEN ha.EmployeeCount ELSE 0 END) as Layoff,
+                    SUM(ha.EmployeeCount) as Total,
+                    -- Category breakdowns (present only, excluding layoff)
+                    SUM(CASE WHEN ha.Category = 'Worker' AND ha.AttendanceStatus = 'Present' AND ha.Layoff = 0 THEN ha.EmployeeCount ELSE 0 END) as WorkerPresent,
+                    SUM(CASE WHEN ha.Category = 'Staff' AND ha.AttendanceStatus = 'Present' AND ha.Layoff = 0 THEN ha.EmployeeCount ELSE 0 END) as StaffPresent,
+                    SUM(CASE WHEN ha.Category = 'Officer' AND ha.AttendanceStatus = 'Present' AND ha.Layoff = 0 THEN ha.EmployeeCount ELSE 0 END) as OfficerPresent,
+                    SUM(CASE WHEN ha.Category = 'Manager' AND ha.AttendanceStatus = 'Present' AND ha.Layoff = 0 THEN ha.EmployeeCount ELSE 0 END) as ManagerPresent,
+                    SUM(CASE WHEN ha.Category = 'Executive' AND ha.AttendanceStatus = 'Present' AND ha.Layoff = 0 THEN ha.EmployeeCount ELSE 0 END) as ExecutivePresent,
+                    SUM(CASE WHEN ha.Category NOT IN ('Worker', 'Staff', 'Officer', 'Manager', 'Executive') AND ha.AttendanceStatus = 'Present' AND ha.Layoff = 0 THEN ha.EmployeeCount ELSE 0 END) as OtherPresent
+                FROM HierarchyAttendance ha
+                GROUP BY ha.ParentDesignation, ha.SubDesignation
+                ORDER BY ha.ParentDesignation, ha.SubDesignation";
+
+            var result = await connection.QueryAsync<DailyAttendanceDataWithLayoff>(sql, new { ReportDate = reportDate.Date, CompanyCode = companyCode });
+
+            var reportData = result.GroupBy(r => r.ParentDesignation)
+                .Select(g => new AttendanceByDesignation
+                {
+                    ParentDesignation = g.Key,
+                    SubDesignations = g.Select(s => new AttendanceBySubDesignation
+                    {
+                        SubDesignation = s.SubDesignation,
+                        Present = s.Present,
+                        Absent = s.Absent,
+                        Layoff = s.Layoff, // NEW
+                        Total = s.Total,
+                        // Keep your existing fields as they were
+                        Attacher = 0,
+                        Folder = 0,
+                        Sticher = 0,
+                        Others = s.Present,
+                        // Category fields
+                        WorkerPresent = s.WorkerPresent,
+                        StaffPresent = s.StaffPresent,
+                        OfficerPresent = s.OfficerPresent,
+                        ManagerPresent = s.ManagerPresent,
+                        ExecutivePresent = s.ExecutivePresent,
+                        OtherPresent = s.OtherPresent
+                    }).ToList(),
+                    TotalEmployees = g.Sum(s => s.Total),
+                    PresentEmployees = g.Sum(s => s.Present),
+                    AbsentEmployees = g.Sum(s => s.Absent),
+                    LayoffEmployees = g.Sum(s => s.Layoff) // NEW
+                }).ToList();
+
+            return new AttendanceReportViewModel
+            {
+                AttendanceByDesignations = reportData,
+                ReportDate = reportDate,
+                TotalEmployees = reportData.Sum(r => r.TotalEmployees),
+                PresentEmployees = reportData.Sum(r => r.PresentEmployees),
+                AbsentEmployees = reportData.Sum(r => r.AbsentEmployees),
+                LayoffEmployees = reportData.Sum(r => r.LayoffEmployees), // NEW
+                AttendancePercentage = CalculateAttendancePercentage(reportData) // NEW
+            };
+        }
+
+        // Add this helper method to calculate attendance percentage
+        private decimal CalculateAttendancePercentage(List<AttendanceByDesignation> reportData)
+        {
+            var totalEmployees = reportData.Sum(r => r.TotalEmployees);
+            var totalPresent = reportData.Sum(r => r.PresentEmployees);
+            var totalLayoff = reportData.Sum(r => r.LayoffEmployees);
+            var effectivePresent = totalPresent + totalLayoff; // Layoff counts as present
+
+            return totalEmployees > 0 ? Math.Round((decimal)effectivePresent / totalEmployees * 100, 0) : 0;
+        }
         public async Task<List<CompanyAttendanceStats>> GetCompaniesWithAttendanceAsync(DateTime reportDate)
         {
             using var connection = new SqlConnection(_newAttendanceConnectionString); // Read from Server 3
@@ -856,6 +957,437 @@ namespace HRManagementSystem.Data
             }
 
             return allShifts;
+        }
+
+
+        //new for layoff
+        // Add this method to support layoff in daily attendance report
+        public async Task<AttendanceReportViewModel> GetDailyAttendanceReportWithLayoffAsync(DateTime reportDate, int companyCode)
+        {
+            using var connection = new SqlConnection(_newAttendanceConnectionString);
+
+            var sql = @"
+        WITH HierarchyAttendance AS (
+            SELECT 
+                COALESCE(dh.ParentDesignation, da.Department, 'Unassigned Department') as ParentDesignation,
+                COALESCE(dh.SubDesignation, da.Designation, 'Unassigned Designation') as SubDesignation,
+                COALESCE(da.Category, 'Unknown') as Category,
+                da.AttendanceStatus,
+                ISNULL(da.Layoff, 0) as Layoff,
+                COUNT(*) as EmployeeCount
+            FROM DailyAttendance da
+            LEFT JOIN DesignationHierarchy dh ON dh.SubDesignation = da.Designation 
+                                              AND dh.ParentDesignation = da.Department
+                                              AND dh.IsActive = 1
+            WHERE da.AttendanceDate = @ReportDate
+                  AND (@CompanyCode = 0 OR da.CompanyCode = @CompanyCode)
+                  AND ISNULL(da.LongAbsent, 0) = 0
+            GROUP BY COALESCE(dh.ParentDesignation, da.Department, 'Unassigned Department'), 
+                     COALESCE(dh.SubDesignation, da.Designation, 'Unassigned Designation'),
+                     COALESCE(da.Category, 'Unknown'),
+                     da.AttendanceStatus,
+                     ISNULL(da.Layoff, 0)
+        )
+        SELECT 
+            ha.ParentDesignation, 
+            ha.SubDesignation,
+            SUM(CASE WHEN ha.AttendanceStatus = 'Present' AND ha.Layoff = 0 THEN ha.EmployeeCount ELSE 0 END) as Present,
+            SUM(CASE WHEN ha.AttendanceStatus = 'Absent' AND ha.Layoff = 0 THEN ha.EmployeeCount ELSE 0 END) as Absent,
+            SUM(CASE WHEN ha.Layoff = 1 THEN ha.EmployeeCount ELSE 0 END) as Layoff,
+            SUM(ha.EmployeeCount) as Total,
+            -- Category breakdowns (present only, excluding layoff)
+            SUM(CASE WHEN ha.Category = 'Worker' AND ha.AttendanceStatus = 'Present' AND ha.Layoff = 0 THEN ha.EmployeeCount ELSE 0 END) as WorkerPresent,
+            SUM(CASE WHEN ha.Category = 'Staff' AND ha.AttendanceStatus = 'Present' AND ha.Layoff = 0 THEN ha.EmployeeCount ELSE 0 END) as StaffPresent,
+            SUM(CASE WHEN ha.Category = 'Officer' AND ha.AttendanceStatus = 'Present' AND ha.Layoff = 0 THEN ha.EmployeeCount ELSE 0 END) as OfficerPresent,
+            SUM(CASE WHEN ha.Category = 'Manager' AND ha.AttendanceStatus = 'Present' AND ha.Layoff = 0 THEN ha.EmployeeCount ELSE 0 END) as ManagerPresent,
+            SUM(CASE WHEN ha.Category = 'Executive' AND ha.AttendanceStatus = 'Present' AND ha.Layoff = 0 THEN ha.EmployeeCount ELSE 0 END) as ExecutivePresent,
+            SUM(CASE WHEN ha.Category NOT IN ('Worker', 'Staff', 'Officer', 'Manager', 'Executive') AND ha.AttendanceStatus = 'Present' AND ha.Layoff = 0 THEN ha.EmployeeCount ELSE 0 END) as OtherPresent
+        FROM HierarchyAttendance ha
+        GROUP BY ha.ParentDesignation, ha.SubDesignation
+        ORDER BY ha.ParentDesignation, ha.SubDesignation";
+
+            var result = await connection.QueryAsync<DailyAttendanceDataWithLayoff>(sql, new { ReportDate = reportDate.Date, CompanyCode = companyCode });
+
+            var reportData = result.GroupBy(r => r.ParentDesignation)
+                .Select(g => new AttendanceByDesignation
+                {
+                    ParentDesignation = g.Key,
+                    SubDesignations = g.Select(s => new AttendanceBySubDesignation
+                    {
+                        SubDesignation = s.SubDesignation,
+                        Present = s.Present,
+                        Absent = s.Absent,
+                        Layoff = s.Layoff, // NEW
+                        Total = s.Total,
+                        // Keep your existing fields
+                        Attacher = 0,
+                        Folder = 0,
+                        Sticher = 0,
+                        Others = s.Present,
+                        // Category fields
+                        WorkerPresent = s.WorkerPresent,
+                        StaffPresent = s.StaffPresent,
+                        OfficerPresent = s.OfficerPresent,
+                        ManagerPresent = s.ManagerPresent,
+                        ExecutivePresent = s.ExecutivePresent,
+                        OtherPresent = s.OtherPresent
+                    }).ToList(),
+                    TotalEmployees = g.Sum(s => s.Total),
+                    PresentEmployees = g.Sum(s => s.Present),
+                    AbsentEmployees = g.Sum(s => s.Absent),
+                    LayoffEmployees = g.Sum(s => s.Layoff) // NEW
+                }).ToList();
+
+            return new AttendanceReportViewModel
+            {
+                AttendanceByDesignations = reportData,
+                ReportDate = reportDate,
+                TotalEmployees = reportData.Sum(r => r.TotalEmployees),
+                PresentEmployees = reportData.Sum(r => r.PresentEmployees),
+                AbsentEmployees = reportData.Sum(r => r.AbsentEmployees),
+                LayoffEmployees = reportData.Sum(r => r.LayoffEmployees) // NEW
+            };
+        }
+
+        // Add this method for shift stats with layoff
+        public async Task<List<ShiftAttendanceStats>> GetShiftAttendanceStatsWithLayoffAsync(int companyCode)
+        {
+            using var newAttendanceConnection = new SqlConnection(_newAttendanceConnectionString);
+
+            var shiftStatsSql = @"
+        WITH ShiftAttendanceData AS (
+            SELECT 
+                CASE 
+                    WHEN UPPER(LTRIM(RTRIM(ISNULL([Shift], 'G')))) = 'F' OR UPPER(LTRIM(RTRIM(ISNULL([Shift], 'G')))) = 'FIRST' THEN 'F'
+                    WHEN UPPER(LTRIM(RTRIM(ISNULL([Shift], 'G')))) = 'G' OR UPPER(LTRIM(RTRIM(ISNULL([Shift], 'G')))) = 'GENERAL' THEN 'G' 
+                    WHEN UPPER(LTRIM(RTRIM(ISNULL([Shift], 'G')))) = 'S' OR UPPER(LTRIM(RTRIM(ISNULL([Shift], 'G')))) = 'SECOND' THEN 'S'
+                    ELSE 'G'
+                END as ShiftCode,
+                AttendanceStatus,
+                ISNULL(Layoff, 0) as Layoff
+            FROM DailyAttendance
+            WHERE AttendanceDate = @AttendanceDate
+              AND ISNULL(longabsent, 0) = 0
+              AND Category NOT IN ('STAFF','CONSULTANT')
+              AND (@CompanyCode = 0 OR CompanyCode = @CompanyCode)
+        ),
+        ShiftStats AS (
+            SELECT 
+                ShiftCode,
+                COUNT(*) as TotalEmployees,
+                SUM(CASE WHEN AttendanceStatus = 'Present' AND Layoff = 0 THEN 1 ELSE 0 END) as PresentEmployees,
+                SUM(CASE WHEN AttendanceStatus = 'Absent' AND Layoff = 0 THEN 1 ELSE 0 END) as AbsentEmployees,
+                SUM(CASE WHEN Layoff = 1 THEN 1 ELSE 0 END) as LayoffEmployees,
+                SUM(CASE WHEN Layoff = 0 THEN 1 ELSE 0 END) as ActiveEmployees
+            FROM ShiftAttendanceData
+            GROUP BY ShiftCode
+        )
+        SELECT 
+            ss.ShiftCode,
+            CASE 
+                WHEN ss.ShiftCode = 'F' THEN 'First Shift'
+                WHEN ss.ShiftCode = 'G' THEN 'General Shift'  
+                WHEN ss.ShiftCode = 'S' THEN 'Second Shift'
+                ELSE 'Unknown Shift'
+            END as ShiftName,
+            ss.TotalEmployees,
+            ss.PresentEmployees,
+            ss.AbsentEmployees,
+            ss.LayoffEmployees,
+            ss.ActiveEmployees,
+            CASE 
+                WHEN ss.ActiveEmployees > 0 
+                THEN CAST(ROUND((ss.PresentEmployees * 100.0) / ss.ActiveEmployees, 2) AS DECIMAL(5,2))
+                ELSE 0 
+            END as AttendancePercentage
+        FROM ShiftStats ss
+        ORDER BY ss.ShiftCode";
+
+            var queryParams = new
+            {
+                CompanyCode = companyCode,
+                AttendanceDate = DateTime.Today
+            };
+
+            var result = await newAttendanceConnection.QueryAsync<ShiftAttendanceStatsWithLayoff>(shiftStatsSql, queryParams);
+
+            // Ensure all three shifts are present
+            var allShifts = new List<ShiftAttendanceStats>
+    {
+        new ShiftAttendanceStats { ShiftCode = "F", ShiftName = "First Shift", TotalEmployees = 0, PresentEmployees = 0, AbsentEmployees = 0, LayoffEmployees = 0, AttendancePercentage = 0 },
+        new ShiftAttendanceStats { ShiftCode = "G", ShiftName = "General Shift", TotalEmployees = 0, PresentEmployees = 0, AbsentEmployees = 0, LayoffEmployees = 0, AttendancePercentage = 0 },
+        new ShiftAttendanceStats { ShiftCode = "S", ShiftName = "Second Shift", TotalEmployees = 0, PresentEmployees = 0, AbsentEmployees = 0, LayoffEmployees = 0, AttendancePercentage = 0 }
+    };
+
+            // Update with actual data
+            foreach (var shift in result)
+            {
+                var existingShift = allShifts.FirstOrDefault(s => s.ShiftCode == shift.ShiftCode);
+                if (existingShift != null)
+                {
+                    existingShift.TotalEmployees = shift.TotalEmployees;
+                    existingShift.PresentEmployees = shift.PresentEmployees;
+                    existingShift.AbsentEmployees = shift.AbsentEmployees;
+                    existingShift.LayoffEmployees = shift.LayoffEmployees;
+                    existingShift.AttendancePercentage = shift.AttendancePercentage;
+                }
+            }
+
+            return allShifts;
+        }
+
+        // Add department attendance with layoff support
+        public async Task<DepartmentAttendanceViewModel> GetDepartmentAttendanceReportWithLayoffAsync(DateTime reportDate, int companyCode, string department = "ALL")
+        {
+            using var newAttendanceConnection = new SqlConnection(_newAttendanceConnectionString);
+
+            var mainDataSql = @"
+        WITH EmployeeWithAttendance AS (
+            SELECT 
+                da.CompanyCode,
+                da.EmployeeCode,
+                da.EmployeeName,
+                da.Department,
+                da.Designation,
+                da.Section as MainSection,
+                da.AttendanceStatus,
+                ISNULL(da.Layoff, 0) as Layoff
+            FROM DailyAttendance da
+            WHERE da.AttendanceDate = @ReportDate
+              AND da.Category NOT IN ('STAFF','CONSULTANT')
+              AND ISNULL(da.LongAbsent, 0) = 0
+              AND (@CompanyCode = 0 OR da.CompanyCode = @CompanyCode)
+              AND (@Department = 'ALL' OR da.Department = @Department)
+        ),
+        AggregatedData AS (
+            SELECT 
+                ISNULL(Department, 'Unknown Department') as Department,
+                ISNULL(MainSection, 'OTHERS') as MainSection,
+                ISNULL(Designation, 'Unknown Designation') as Designation,
+                SUM(CASE WHEN AttendanceStatus = 'Present' AND Layoff = 0 THEN 1 ELSE 0 END) as PresentCount,
+                SUM(CASE WHEN AttendanceStatus = 'Absent' AND Layoff = 0 THEN 1 ELSE 0 END) as AbsentCount,
+                SUM(CASE WHEN Layoff = 1 THEN 1 ELSE 0 END) as LayoffCount,
+                COUNT(*) as TotalCount
+            FROM EmployeeWithAttendance
+            GROUP BY Department, MainSection, Designation
+        )
+        SELECT 
+            Department,
+            MainSection,
+            Designation,
+            PresentCount,
+            AbsentCount,
+            LayoffCount,
+            TotalCount
+        FROM AggregatedData
+        ORDER BY Department, MainSection, Designation";
+
+            var availableDepartmentsSql = @"
+        SELECT DISTINCT Department 
+        FROM DailyAttendance
+        WHERE AttendanceDate = @ReportDate
+          AND Department IS NOT NULL 
+          AND Category NOT IN ('STAFF','CONSULTANT')
+          AND ISNULL(LongAbsent, 0) = 0
+          AND (@CompanyCode = 0 OR CompanyCode = @CompanyCode)
+        ORDER BY Department";
+
+            var queryParams = new
+            {
+                ReportDate = reportDate.Date,
+                CompanyCode = companyCode,
+                Department = department
+            };
+
+            var aggregatedData = await newAttendanceConnection.QueryAsync<DepartmentSummaryResultWithLayoff>(mainDataSql, queryParams);
+            var availableDepartments = await newAttendanceConnection.QueryAsync<string>(availableDepartmentsSql, queryParams);
+
+            var departments = ProcessAggregatedDataWithLayoff(aggregatedData);
+            var grandTotals = CalculateGrandTotalsWithLayoff(departments);
+
+            return new DepartmentAttendanceViewModel
+            {
+                ReportDate = reportDate,
+                SelectedCompanyCode = companyCode,
+                SelectedDepartment = department,
+                Departments = departments,
+                GrandTotals = grandTotals,
+                AvailableDepartments = availableDepartments.ToList()
+            };
+        }
+
+        // Add the missing CalculateGrandTotalsWithLayoff method
+        private DepartmentTotals CalculateGrandTotalsWithLayoff(List<DepartmentAttendanceData> departments)
+        {
+            var grandTotals = new DepartmentTotals();
+            foreach (var department in departments)
+            {
+                AddToGrandTotalsWithLayoff(grandTotals, department.DepartmentTotals);
+            }
+            return grandTotals;
+        }
+
+        // Add the missing AddToGrandTotalsWithLayoff method
+        private void AddToGrandTotalsWithLayoff(DepartmentTotals grandTotals, DepartmentTotals departmentTotals)
+        {
+            grandTotals.AttacherPresent += departmentTotals.AttacherPresent;
+            grandTotals.AttacherAbsent += departmentTotals.AttacherAbsent;
+            grandTotals.AttacherLayoff += departmentTotals.AttacherLayoff;
+            grandTotals.AttacherTotal += departmentTotals.AttacherTotal;
+
+            grandTotals.FolderPresent += departmentTotals.FolderPresent;
+            grandTotals.FolderAbsent += departmentTotals.FolderAbsent;
+            grandTotals.FolderLayoff += departmentTotals.FolderLayoff;
+            grandTotals.FolderTotal += departmentTotals.FolderTotal;
+
+            grandTotals.OthersPresent += departmentTotals.OthersPresent;
+            grandTotals.OthersAbsent += departmentTotals.OthersAbsent;
+            grandTotals.OthersLayoff += departmentTotals.OthersLayoff;
+            grandTotals.OthersTotal += departmentTotals.OthersTotal;
+
+            grandTotals.SkiverPresent += departmentTotals.SkiverPresent;
+            grandTotals.SkiverAbsent += departmentTotals.SkiverAbsent;
+            grandTotals.SkiverLayoff += departmentTotals.SkiverLayoff;
+            grandTotals.SkiverTotal += departmentTotals.SkiverTotal;
+
+            grandTotals.StitcherPresent += departmentTotals.StitcherPresent;
+            grandTotals.StitcherAbsent += departmentTotals.StitcherAbsent;
+            grandTotals.StitcherLayoff += departmentTotals.StitcherLayoff;
+            grandTotals.StitcherTotal += departmentTotals.StitcherTotal;
+
+            grandTotals.TotalPresent += departmentTotals.TotalPresent;
+            grandTotals.TotalAbsent += departmentTotals.TotalAbsent;
+            grandTotals.TotalLayoff += departmentTotals.TotalLayoff;
+            grandTotals.GrandTotal += departmentTotals.GrandTotal;
+        }
+
+        // Add the missing ProcessAggregatedDataWithLayoff method
+        private List<DepartmentAttendanceData> ProcessAggregatedDataWithLayoff(IEnumerable<DepartmentSummaryResultWithLayoff> aggregatedData)
+        {
+            var departments = new List<DepartmentAttendanceData>();
+
+            var departmentGroups = aggregatedData.GroupBy(x => x.Department);
+
+            foreach (var deptGroup in departmentGroups)
+            {
+                var departmentData = new DepartmentAttendanceData
+                {
+                    DepartmentName = deptGroup.Key,
+                    MainSections = new List<MainSectionData>()
+                };
+
+                var mainSectionGroups = deptGroup.GroupBy(x => x.MainSection);
+
+                foreach (var mainSectionGroup in mainSectionGroups)
+                {
+                    var mainSection = new MainSectionData
+                    {
+                        MainSectionName = mainSectionGroup.Key,
+                        NOWData = mainSectionGroup.Select(x => new NOWAttendanceData
+                        {
+                            NOWName = x.Designation,
+                            Present = x.PresentCount,
+                            Absent = x.AbsentCount,
+                            Layoff = x.LayoffCount, // NEW
+                            Total = x.TotalCount
+                        }).ToList()
+                    };
+
+                    mainSection.TotalPresent = mainSection.NOWData.Sum(x => x.Present);
+                    mainSection.TotalAbsent = mainSection.NOWData.Sum(x => x.Absent);
+                    mainSection.TotalLayoff = mainSection.NOWData.Sum(x => x.Layoff); // NEW
+                    mainSection.Total = mainSection.TotalPresent + mainSection.TotalAbsent + mainSection.TotalLayoff;
+
+                    departmentData.MainSections.Add(mainSection);
+                }
+
+                CalculateDepartmentTotalsWithLayoff(departmentData);
+                departments.Add(departmentData);
+            }
+
+            return departments;
+        }
+
+        // Add the missing CalculateDepartmentTotalsWithLayoff method
+        private void CalculateDepartmentTotalsWithLayoff(DepartmentAttendanceData department)
+        {
+            department.DepartmentTotals = new DepartmentTotals();
+
+            foreach (var mainSection in department.MainSections)
+            {
+                var present = mainSection.TotalPresent;
+                var absent = mainSection.TotalAbsent;
+                var layoff = mainSection.TotalLayoff;
+                var total = mainSection.Total;
+
+                var cleanMainSectionName = (mainSection.MainSectionName ?? "").Trim().ToUpper();
+
+                if (cleanMainSectionName == "ATTACHER")
+                {
+                    department.DepartmentTotals.AttacherPresent = present;
+                    department.DepartmentTotals.AttacherAbsent = absent;
+                    department.DepartmentTotals.AttacherLayoff = layoff;
+                    department.DepartmentTotals.AttacherTotal = total;
+                }
+                else if (cleanMainSectionName == "FOLDER")
+                {
+                    department.DepartmentTotals.FolderPresent = present;
+                    department.DepartmentTotals.FolderAbsent = absent;
+                    department.DepartmentTotals.FolderLayoff = layoff;
+                    department.DepartmentTotals.FolderTotal = total;
+                }
+                else if (cleanMainSectionName == "OTHERS")
+                {
+                    department.DepartmentTotals.OthersPresent = present;
+                    department.DepartmentTotals.OthersAbsent = absent;
+                    department.DepartmentTotals.OthersLayoff = layoff;
+                    department.DepartmentTotals.OthersTotal = total;
+                }
+                else if (cleanMainSectionName == "SKIVER")
+                {
+                    department.DepartmentTotals.SkiverPresent = present;
+                    department.DepartmentTotals.SkiverAbsent = absent;
+                    department.DepartmentTotals.SkiverLayoff = layoff;
+                    department.DepartmentTotals.SkiverTotal = total;
+                }
+                else if (cleanMainSectionName == "STITCHER")
+                {
+                    department.DepartmentTotals.StitcherPresent = present;
+                    department.DepartmentTotals.StitcherAbsent = absent;
+                    department.DepartmentTotals.StitcherLayoff = layoff;
+                    department.DepartmentTotals.StitcherTotal = total;
+                }
+                else
+                {
+                    department.DepartmentTotals.OthersPresent += present;
+                    department.DepartmentTotals.OthersAbsent += absent;
+                    department.DepartmentTotals.OthersLayoff += layoff;
+                    department.DepartmentTotals.OthersTotal += total;
+                }
+            }
+
+            // Calculate totals
+            department.DepartmentTotals.TotalPresent = department.DepartmentTotals.AttacherPresent +
+                                                      department.DepartmentTotals.FolderPresent +
+                                                      department.DepartmentTotals.OthersPresent +
+                                                      department.DepartmentTotals.SkiverPresent +
+                                                      department.DepartmentTotals.StitcherPresent;
+
+            department.DepartmentTotals.TotalAbsent = department.DepartmentTotals.AttacherAbsent +
+                                                     department.DepartmentTotals.FolderAbsent +
+                                                     department.DepartmentTotals.OthersAbsent +
+                                                     department.DepartmentTotals.SkiverAbsent +
+                                                     department.DepartmentTotals.StitcherAbsent;
+
+            department.DepartmentTotals.TotalLayoff = department.DepartmentTotals.AttacherLayoff +
+                                                     department.DepartmentTotals.FolderLayoff +
+                                                     department.DepartmentTotals.OthersLayoff +
+                                                     department.DepartmentTotals.SkiverLayoff +
+                                                     department.DepartmentTotals.StitcherLayoff;
+
+            department.DepartmentTotals.GrandTotal = department.DepartmentTotals.TotalPresent +
+                                                   department.DepartmentTotals.TotalAbsent +
+                                                   department.DepartmentTotals.TotalLayoff;
         }
 
     }

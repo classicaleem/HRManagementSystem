@@ -38,55 +38,6 @@ namespace HRManagementSystem.Controllers
             return View();
         }
 
-        public async Task<IActionResult> AttendanceReport(int companyCode = 0, DateTime? reportDate = null)
-        {
-            var userRole = User.FindFirst(ClaimTypes.Role)?.Value;
-            var userCompanyCode = int.TryParse(User.FindFirst("CompanyCode")?.Value, out var userComp) ? userComp : 0;
-
-            // Role-based access control
-            if (userRole != "Admin" && companyCode != userCompanyCode)
-            {
-                companyCode = userCompanyCode;
-            }
-
-            var selectedDate = reportDate ?? DateTime.Today;
-            var report = await _attendanceRepository.GetDailyAttendanceReportAsync(selectedDate, companyCode);
-
-            // Get companies for dropdown (based on user role)
-            var roleId = GetRoleId(userRole);
-            report.Companies = await _companyRepository.GetCompaniesByUserRoleAsync(roleId, userCompanyCode);
-            report.SelectedCompanyCode = companyCode;
-
-            // ADD THIS: Create SelectList for dropdown
-            var companyOptions = new List<SelectListItem>
-            {
-                new SelectListItem { Value = "0", Text = "All Companies" }
-            };
-            companyOptions.AddRange(report.Companies.Select(c => new SelectListItem
-            {
-                Value = c.CompanyCode.ToString(),
-                Text = c.CompanyName,
-                Selected = c.CompanyCode == companyCode
-            }));
-
-            report.CompanySelectList = new SelectList(companyOptions, "Value", "Text", companyCode.ToString());
-
-            return View(report);
-        }
-        [HttpPost]
-        public async Task<IActionResult> RefreshAttendance()
-        {
-            try
-            {
-                await _attendanceProcessor.ProcessTodayAttendanceAsync();
-                return Json(new { success = true, message = "Attendance data refreshed successfully." });
-            }
-            catch (Exception ex)
-            {
-                return Json(new { success = false, message = $"Error refreshing attendance: {ex.Message}" });
-            }
-        }
-
         [HttpGet]
         public async Task<IActionResult> GetAttendanceStats(int companyCode = 0)
         {
@@ -108,6 +59,8 @@ namespace HRManagementSystem.Controllers
                     totalEmployees = stats.TotalEmployees,
                     presentEmployees = stats.PresentEmployees,
                     absentEmployees = stats.AbsentEmployees,
+                    layoffEmployees = stats.LayoffEmployees,
+                    attendancePercentage = stats.AttendancePercentage, // NEW
                     lastUpdated = DateTime.Now.ToString("HH:mm:ss")
                 });
             }
@@ -117,22 +70,35 @@ namespace HRManagementSystem.Controllers
             }
         }
 
-        private int GetRoleId(string roleName)
+        [HttpGet]
+        public async Task<IActionResult> GetShiftAttendanceStats(int companyCode = 0)
         {
-            return roleName switch
+            try
             {
-                "Admin" => 1,
-                "HR" => 2,
-                "User" => 3,
-                "GM" => 4,
-                _ => 3
-            };
+                var userRole = User.FindFirst(ClaimTypes.Role)?.Value;
+                var userCompanyCode = int.TryParse(User.FindFirst("CompanyCode")?.Value, out var userComp) ? userComp : 0;
+
+                // Role-based access control
+                if (userRole != "Admin" && companyCode != userCompanyCode)
+                {
+                    companyCode = userCompanyCode;
+                }
+
+                var shiftStats = await _attendanceRepository.GetShiftAttendanceStatsWithLayoffAsync(companyCode);
+                return Json(new
+                {
+                    success = true,
+                    shifts = shiftStats,
+                    lastUpdated = DateTime.Now.ToString("HH:mm:ss")
+                });
+            }
+            catch (Exception ex)
+            {
+                return Json(new { success = false, message = ex.Message });
+            }
         }
 
-        #region 'department attendance report'
-        // Add this method to your HomeController class
-
-        public async Task<IActionResult> DepartmentAttendanceold(int companyCode = 0, DateTime? reportDate = null, string department = "ALL")
+        public async Task<IActionResult> AttendanceReport(int companyCode = 0, DateTime? reportDate = null)
         {
             var userRole = User.FindFirst(ClaimTypes.Role)?.Value;
             var userCompanyCode = int.TryParse(User.FindFirst("CompanyCode")?.Value, out var userComp) ? userComp : 0;
@@ -144,15 +110,14 @@ namespace HRManagementSystem.Controllers
             }
 
             var selectedDate = reportDate ?? DateTime.Today;
-            var report = await _attendanceRepository.GetDepartmentAttendanceReportAsync(selectedDate, companyCode, department);
+            var report = await _attendanceRepository.GetDailyAttendanceReportWithLayoffAsync(selectedDate, companyCode);
 
             // Get companies for dropdown (based on user role)
             var roleId = GetRoleId(userRole);
             report.Companies = await _companyRepository.GetCompaniesByUserRoleAsync(roleId, userCompanyCode);
             report.SelectedCompanyCode = companyCode;
-            report.SelectedDepartment = department;
 
-            // Create SelectList for company dropdown
+            // Create SelectList for dropdown
             var companyOptions = new List<SelectListItem>
             {
                 new SelectListItem { Value = "0", Text = "All Companies" }
@@ -165,20 +130,6 @@ namespace HRManagementSystem.Controllers
             }));
 
             report.CompanySelectList = new SelectList(companyOptions, "Value", "Text", companyCode.ToString());
-
-            // Create SelectList for department dropdown
-            var departmentOptions = new List<SelectListItem>
-            {
-                new SelectListItem { Value = "ALL", Text = "All Departments" }
-            };
-            departmentOptions.AddRange(report.AvailableDepartments.Select(d => new SelectListItem
-            {
-                Value = d,
-                Text = d,
-                Selected = d == department
-            }));
-
-            report.DepartmentSelectList = new SelectList(departmentOptions, "Value", "Text", department);
 
             return View(report);
         }
@@ -195,7 +146,7 @@ namespace HRManagementSystem.Controllers
             }
 
             var selectedDate = reportDate ?? DateTime.Today;
-            var report = await _attendanceRepository.GetDepartmentAttendanceReportAsync(selectedDate, companyCode, department);
+            var report = await _attendanceRepository.GetDepartmentAttendanceReportWithLayoffAsync(selectedDate, companyCode, department);
 
             // Get companies for dropdown (based on user role)
             var roleId = GetRoleId(userRole);
@@ -221,9 +172,9 @@ namespace HRManagementSystem.Controllers
 
             // Create SelectList for department dropdown
             var departmentOptions = new List<SelectListItem>
-    {
-        new SelectListItem { Value = "ALL", Text = "All Departments" }
-    };
+            {
+                new SelectListItem { Value = "ALL", Text = "All Departments" }
+            };
             departmentOptions.AddRange(report.AvailableDepartments.Select(d => new SelectListItem
             {
                 Value = d,
@@ -240,34 +191,30 @@ namespace HRManagementSystem.Controllers
             return View(report);
         }
 
-        #endregion
-
-        [HttpGet]
-        public async Task<IActionResult> GetShiftAttendanceStats(int companyCode = 0)
+        [HttpPost]
+        public async Task<IActionResult> RefreshAttendance()
         {
             try
             {
-                var userRole = User.FindFirst(ClaimTypes.Role)?.Value;
-                var userCompanyCode = int.TryParse(User.FindFirst("CompanyCode")?.Value, out var userComp) ? userComp : 0;
-
-                // Role-based access control
-                if (userRole != "Admin" && companyCode != userCompanyCode)
-                {
-                    companyCode = userCompanyCode;
-                }
-
-                var shiftStats = await _attendanceRepository.GetShiftAttendanceStatsAsync(companyCode);
-                return Json(new
-                {
-                    success = true,
-                    shifts = shiftStats,
-                    lastUpdated = DateTime.Now.ToString("HH:mm:ss")
-                });
+                await _attendanceProcessor.ProcessTodayAttendanceAsync();
+                return Json(new { success = true, message = "Attendance data refreshed successfully." });
             }
             catch (Exception ex)
             {
-                return Json(new { success = false, message = ex.Message });
+                return Json(new { success = false, message = $"Error refreshing attendance: {ex.Message}" });
             }
+        }
+
+        private int GetRoleId(string roleName)
+        {
+            return roleName switch
+            {
+                "Admin" => 1,
+                "HR" => 2,
+                "User" => 3,
+                "GM" => 4,
+                _ => 3
+            };
         }
     }
 }

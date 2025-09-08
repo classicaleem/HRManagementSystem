@@ -14,7 +14,7 @@ namespace HRManagementSystem.Data
             _newAttendanceConnectionString = configuration.GetConnectionString("NewAttendanceConnection");
         }
 
-        public async Task<DataTableResponse<AttendanceSummaryData>> GetAttendanceSummaryAsync(DataTableRequest request)
+        public async Task<DataTableResponse<AttendanceSummaryData>> GetAttendanceSummaryAsyncold(DataTableRequest request)
         {
             using var connection = new SqlConnection(_newAttendanceConnectionString);
 
@@ -124,6 +124,128 @@ namespace HRManagementSystem.Data
                 {baseQuery}
                 {orderBy}
                 OFFSET @Skip ROWS FETCH NEXT @Take ROWS ONLY";
+
+            parameters.Add("Skip", request.Start);
+            parameters.Add("Take", request.Length);
+
+            var data = await connection.QueryAsync<AttendanceSummaryData>(dataQuery, parameters);
+
+            return new DataTableResponse<AttendanceSummaryData>
+            {
+                Data = data.ToList(),
+                TotalRecords = totalRecords,
+                FilteredRecords = totalRecords
+            };
+        }
+
+        public async Task<DataTableResponse<AttendanceSummaryData>> GetAttendanceSummaryAsync(DataTableRequest request)
+        {
+            using var connection = new SqlConnection(_newAttendanceConnectionString);
+
+            var baseQuery = @"
+        FROM vw_AttendanceSummaryReport
+        WHERE AttendanceDate BETWEEN @FromDate AND @ToDate";
+
+            var parameters = new DynamicParameters();
+            parameters.Add("FromDate", request.FromDate);
+            parameters.Add("ToDate", request.ToDate);
+
+            var whereClause = new StringBuilder();
+
+            if (request.CompanyCode > 0)
+            {
+                whereClause.Append(" AND CompanyCode = @CompanyCode");
+                parameters.Add("CompanyCode", request.CompanyCode);
+            }
+
+            if (!string.IsNullOrEmpty(request.Department))
+            {
+                whereClause.Append(" AND Department = @Department");
+                parameters.Add("Department", request.Department);
+            }
+
+            if (!string.IsNullOrEmpty(request.Category))
+            {
+                whereClause.Append(" AND Category = @Category");
+                parameters.Add("Category", request.Category);
+            }
+
+            if (!string.IsNullOrEmpty(request.Designation))
+            {
+                whereClause.Append(" AND Designation = @Designation");
+                parameters.Add("Designation", request.Designation);
+            }
+
+            if (!string.IsNullOrEmpty(request.AttendanceStatus) && request.AttendanceStatus != "All")
+            {
+                whereClause.Append(" AND AttendanceStatus = @AttendanceStatus");
+                parameters.Add("AttendanceStatus", request.AttendanceStatus);
+            }
+
+            // LongAbsent filtering
+            if (!string.IsNullOrEmpty(request.LongAbsentOption) && request.LongAbsentOption != "All")
+            {
+                if (request.LongAbsentOption == "ExcludeLongAbsent")
+                {
+                    whereClause.Append(" AND ISNULL(LongAbsent, 0) = 0");
+                }
+                else if (request.LongAbsentOption == "OnlyLongAbsent")
+                {
+                    whereClause.Append(" AND LongAbsent = 1");
+                }
+            }
+
+            // NEW: Layoff filtering
+            if (!string.IsNullOrEmpty(request.LayoffOption) && request.LayoffOption != "All")
+            {
+                if (request.LayoffOption == "ExcludeLayoff")
+                {
+                    whereClause.Append(" AND ISNULL(Layoff, 0) = 0");
+                }
+                else if (request.LayoffOption == "OnlyLayoff")
+                {
+                    whereClause.Append(" AND Layoff = 1");
+                }
+            }
+
+            // Apply search
+            if (!string.IsNullOrEmpty(request.SearchValue))
+            {
+                whereClause.Append(@" AND (
+            EmployeeCode LIKE @Search OR 
+            EmployeeName LIKE @Search OR 
+            PunchNo LIKE @Search OR
+            Department LIKE @Search OR
+            Designation LIKE @Search
+        )");
+                parameters.Add("Search", $"%{request.SearchValue}%");
+            }
+
+            baseQuery += whereClause.ToString();
+
+            // Get total count
+            var countQuery = $"SELECT COUNT(*) {baseQuery}";
+            var totalRecords = await connection.QuerySingleAsync<int>(countQuery, parameters);
+
+            // Apply sorting
+            var orderBy = " ORDER BY ";
+            if (request.SortColumn >= 0 && request.SortColumn < request.Columns.Count)
+            {
+                var columnName = request.Columns[request.SortColumn];
+                orderBy += GetSortColumn(columnName) + " " + request.SortDirection;
+            }
+            else
+            {
+                orderBy += "AttendanceDate DESC, EmployeeCode";
+            }
+
+            // Apply pagination
+            var dataQuery = $@"SELECT CompanyName,EmployeeCode,PunchNo, EmployeeName,Department,Designation,Category,Section,AttendanceDate,FirstPunchTime,AttendanceStatus,PerDayCTC,ProcessedDate,
+            ISNULL(LongAbsent, 0) as LongAbsent,
+            ISNULL(Layoff, 0) as Layoff
+            {baseQuery}
+            {orderBy}
+            OFFSET @Skip ROWS FETCH NEXT @Take ROWS ONLY";
 
             parameters.Add("Skip", request.Start);
             parameters.Add("Take", request.Length);

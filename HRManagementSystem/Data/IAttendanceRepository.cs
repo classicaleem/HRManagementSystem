@@ -10,5 +10,9 @@ namespace HRManagementSystem.Data
         Task<DepartmentAttendanceViewModel> GetDepartmentAttendanceReportAsync(DateTime reportDate, int companyCode, string department = "ALL");
         Task<List<ShiftAttendanceStats>> GetShiftAttendanceStatsAsync(int companyCode);
 
+        Task<AttendanceReportViewModel> GetDailyAttendanceReportWithLayoffAsync(DateTime reportDate, int companyCode);
+        Task<DepartmentAttendanceViewModel> GetDepartmentAttendanceReportWithLayoffAsync(DateTime reportDate, int companyCode, string department = "ALL");
+        Task<List<ShiftAttendanceStats>> GetShiftAttendanceStatsWithLayoffAsync(int companyCode);
+
     }
 }

@@ -6,5 +6,7 @@ namespace HRManagementSystem.Services
     {
         Task ProcessTodayAttendanceAsync();
         Task<AttendanceReportViewModel> GetAttendanceStatsAsync(int companyCode);
+
+
     }
 }

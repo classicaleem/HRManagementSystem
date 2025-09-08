@@ -93,7 +93,16 @@
                                 </select>
                             </div>
                         </div>
-
+                        <div class="col-lg-2 col-md-4 col-sm-6">
+                            <div class="form-group">
+                                <label for="layoffOption">Layoff Filter</label>
+                                <select class="form-control" id="layoffOption">
+                                    <option value="All">All Employees</option>
+                                    <option value="ExcludeLayoff" selected>Exclude Layoff</option>
+                                    <option value="OnlyLayoff">Only Layoff</option>
+                                </select>
+                            </div>
+                        </div>
                         <div class="col-lg-10 col-md-8 col-sm-6">
                             <div class="form-group mt-4 pt-2">
                                 <button type="button" class="btn btn-primary" id="btnSearch">
@@ -167,6 +176,7 @@
                             <th>Status</th>
                             <th>Per Day CTC</th>
                             <th>Long Absent</th>
+                            <th>Layoff</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -186,6 +196,7 @@
                             <th>Status</th>
                             <th>Per Day CTC</th>
                             <th>Long Absent</th>
+                            <th>Layoff</th>
                         </tr>
                     </tfoot>
                 </table>
@@ -300,7 +311,8 @@
                                 category: $('#category').val(),
                                 designation: $('#designation').val(),
                                 attendanceStatus: $('#attendanceStatus').val(),
-                                longAbsentOption: $('#longAbsentOption').val()
+                                longAbsentOption: $('#longAbsentOption').val(),
+                                layoffOption: $('#layoffOption').val()
                             });
                         },
                         error: function(xhr, error, thrown) {
@@ -376,20 +388,34 @@
                                 return '₹ ' + parseFloat(data).toFixed(2);
                             }
                         },
-                                {
-            data: 'longAbsent',
-            name: 'LongAbsent',
-            render: function(data, type, row) {
-                if (data === true || data === 1 || data === "1") {
-                    return '<span class="status-badge status-long-absent">' +
-                           '<i class="fas fa-exclamation-triangle"></i> Long Absent</span>';
-                } else {
-                    return '<span class="status-badge status-active">' +
-                           '<i class="fas fa-check-circle"></i> Active</span>';
-                }
-            },
-            className: 'text-center'
-        }
+                        {
+                            data: 'longAbsent',
+                            name: 'LongAbsent',
+                            render: function(data, type, row) {
+                                if (data === true || data === 1 || data === "1") {
+                                    return '<span class="status-badge status-long-absent">' +
+                                           '<i class="fas fa-exclamation-triangle"></i> Long Absent</span>';
+                                } else {
+                                    return '<span class="status-badge status-active">' +
+                                           '<i class="fas fa-check-circle"></i> Active</span>';
+                                }
+                            },
+                            className: 'text-center'
+                        },
+                        {
+                            data: 'layoff',
+                            name: 'Layoff',
+                            render: function(data, type, row) {
+                                if (data === true || data === 1 || data === "1") {
+                                    return '<span class="status-badge status-layoff">' +
+                                           '<i class="fas fa-user-slash"></i> Layoff</span>';
+                                } else {
+                                    return '<span class="status-badge status-active">' +
+                                           '<i class="fas fa-user-check"></i> Active</span>';
+                                }
+                            },
+                            className: 'text-center'
+                        }
                     ],
                     order: [[8, 'desc']], // Sort by date by default
                     pageLength: 25,
@@ -548,7 +574,8 @@
                     category: $('#category').val(),
                     designation: $('#designation').val(),
                     attendanceStatus: $('#attendanceStatus').val(),
-                    longAbsentOption: $('#longAbsentOption').val()
+                    longAbsentOption: $('#longAbsentOption').val(),
+                    layoffOption: $('#layoffOption').val()
                 };
 
                 // Show loading indicator
@@ -741,6 +768,17 @@
             font-size: 18px;
             font-weight: bold;
         }
+
+        .status-layoff {
+            background: #fff3cd;
+            color: #856404;
+            border-color: #ffeaa7;
+        }
+
+            .status-layoff:hover {
+                background: #ffeaa7;
+                transform: scale(1.05);
+            }
     </style>
 }
 

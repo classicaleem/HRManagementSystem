@@ -15,5 +15,6 @@
         public int CompanyCode { get; set; }
         public List<string> Categories { get; set; } = new();
         public int Days { get; set; } = 7;
+        public bool IncludeLayoff { get; set; } = false; // NEW
     }
 }

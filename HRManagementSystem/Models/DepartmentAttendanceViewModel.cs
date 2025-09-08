@@ -30,6 +30,7 @@ namespace HRManagementSystem.Models
         public int TotalPresent { get; set; }
         public int TotalAbsent { get; set; }
         public int Total { get; set; }
+        public int TotalLayoff { get; set; } = 0;
     }
 
     public class NOWAttendanceData
@@ -38,6 +39,7 @@ namespace HRManagementSystem.Models
         public int Present { get; set; }
         public int Absent { get; set; }
         public int Total { get; set; }
+        public int Layoff { get; set; } = 0;
     }
 
     public class DepartmentTotals
@@ -45,24 +47,30 @@ namespace HRManagementSystem.Models
         public int AttacherPresent { get; set; }
         public int AttacherAbsent { get; set; }
         public int AttacherTotal { get; set; }
+        public int AttacherLayoff { get; set; } = 0;
 
         public int FolderPresent { get; set; }
         public int FolderAbsent { get; set; }
+        public int FolderLayoff { get; set; } = 0;
         public int FolderTotal { get; set; }
 
         public int OthersPresent { get; set; }
         public int OthersAbsent { get; set; }
+        public int OthersLayoff { get; set; } = 0;
         public int OthersTotal { get; set; }
 
         public int SkiverPresent { get; set; }
         public int SkiverAbsent { get; set; }
+        public int SkiverLayoff { get; set; } = 0;
         public int SkiverTotal { get; set; }
 
         public int StitcherPresent { get; set; }
         public int StitcherAbsent { get; set; }
+        public int StitcherLayoff { get; set; } = 0;
         public int StitcherTotal { get; set; }
 
         public int TotalPresent { get; set; }
+        public int TotalLayoff { get; set; } = 0;
         public int TotalAbsent { get; set; }
         public int GrandTotal { get; set; }
     }

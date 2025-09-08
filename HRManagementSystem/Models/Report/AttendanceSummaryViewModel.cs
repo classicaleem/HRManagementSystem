@@ -36,6 +36,7 @@ namespace HRManagementSystem.Models
         public decimal PerDayCTC { get; set; }
         public DateTime? ProcessedDate { get; set; }
         public bool LongAbsent { get; set; } = false;
+        public bool Layoff { get; set; } = false;
     }
 
     public class DataTableRequest
@@ -56,6 +57,7 @@ namespace HRManagementSystem.Models
         public string Designation { get; set; }
         public string AttendanceStatus { get; set; }
         public string LongAbsentOption { get; set; } = "All";
+        public string LayoffOption { get; set; } = "All";
     }
 
     public class AttendanceExportRequest
@@ -68,6 +70,7 @@ namespace HRManagementSystem.Models
         public string Designation { get; set; }
         public string AttendanceStatus { get; set; }
         public string LongAbsentOption { get; set; } = "All";
+        public string LayoffOption { get; set; } = "All";
     }
 
     public class DataTableResponse<T>

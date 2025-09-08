@@ -11,17 +11,27 @@ namespace HRManagementSystem.Models
         public int PresentEmployees { get; set; }
         public int AbsentEmployees { get; set; }
         public List<Company> Companies { get; set; }
+        public int LayoffEmployees { get; set; } = 0;
         public int SelectedCompanyCode { get; set; }
-
+        public decimal AttendancePercentage { get; set; }
         // ADD THIS: SelectList for better dropdown handling
         public SelectList CompanySelectList { get; set; }
     }
+    //public class AttendanceStatsWithLayoff
+    //{
+    //    public int TotalEmployees { get; set; }
+    //    public int PresentEmployees { get; set; }
+    //    public int AbsentEmployees { get; set; }
+    //    public int LayoffEmployees { get; set; } = 0; // NEW
+    //    public decimal AttendancePercentage { get; set; } // NEW - calculated as Present/(Present+Absent) excluding layoff
+    //}
     public class AttendanceByDesignation
     {
         public string ParentDesignation { get; set; }
         public List<AttendanceBySubDesignation> SubDesignations { get; set; }
         public int TotalEmployees { get; set; }
         public int PresentEmployees { get; set; }
+        public int LayoffEmployees { get; set; } = 0;
         public int AbsentEmployees { get; set; }
         public int WorkerPresent { get; set; }
         public int StaffPresent { get; set; }
@@ -52,6 +62,7 @@ namespace HRManagementSystem.Models
         public int Sticher { get; set; }
         public int Others { get; set; }
         public int Absent { get; set; }
+        public int Layoff { get; set; } = 0; // NEW
         public int Present { get; set; }
         public int Total { get; set; }
         public int WorkerPresent { get; set; }
@@ -61,4 +72,6 @@ namespace HRManagementSystem.Models
         public int ExecutivePresent { get; set; }
         public int OtherPresent { get; set; }
     }
+
+
 }
