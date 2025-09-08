@@ -138,6 +138,16 @@
         color: #dc3545;
         font-weight: bold;
     }
+
+    .layoff-count {
+        color: #f39c12;
+        font-weight: bold;
+    }
+
+    .active-count {
+        color: #17a2b8;
+        font-weight: bold;
+    }
 </style>
 
 <div class="container-fluid">
@@ -145,7 +155,7 @@
         <div class="col-12">
             <h2>Department Attendance Report</h2>
 
-           <!-- Filters Section -->
+            <!-- Filters Section -->
             <div class="filters">
                 <form method="get" action="/Home/DepartmentAttendance" id="reportForm">
                     <div class="row">
@@ -175,56 +185,67 @@
                             <label>&nbsp;</label>
                             <br />
                             <button type="submit" class="btn btn-primary">Generate Report</button>
-                           @*  @if (ViewBag.UserRole == "Admin" || ViewBag.UserRole == "HR")
-                            {
-                                <button type="button" class="btn btn-success add-department-btn"
-                                        onclick="showAddDepartmentModal()">
-                                    Add Department
-                                </button>
-                            } *@
                         </div>
                     </div>
                 </form>
             </div>
 
-            <!-- Grand Totals Section -->
+            <!-- Grand Totals Section with Layoff -->
             <div class="grand-totals">
                 <div class="row text-center">
                     <div class="col-md-2">
                         <strong>ATTACHER</strong><br />
                         <span class="present-count">@Model.GrandTotals.AttacherPresent</span> /
-                        <span class="absent-count">@Model.GrandTotals.AttacherAbsent</span>
+                        <span class="absent-count">@Model.GrandTotals.AttacherAbsent</span> /
+                        <span class="layoff-count">@Model.GrandTotals.AttacherLayoff</span>
+                        <br /><small>Active: @(Model.GrandTotals.AttacherPresent + Model.GrandTotals.AttacherAbsent)</small>
                         <br /><small>Total: @Model.GrandTotals.AttacherTotal</small>
                     </div>
                     <div class="col-md-2">
                         <strong>FOLDER</strong><br />
                         <span class="present-count">@Model.GrandTotals.FolderPresent</span> /
-                        <span class="absent-count">@Model.GrandTotals.FolderAbsent</span>
+                        <span class="absent-count">@Model.GrandTotals.FolderAbsent</span> /
+                        <span class="layoff-count">@Model.GrandTotals.FolderLayoff</span>
+                        <br /><small>Active: @(Model.GrandTotals.FolderPresent + Model.GrandTotals.FolderAbsent)</small>
                         <br /><small>Total: @Model.GrandTotals.FolderTotal</small>
                     </div>
                     <div class="col-md-2">
                         <strong>OTHERS</strong><br />
                         <span class="present-count">@Model.GrandTotals.OthersPresent</span> /
-                        <span class="absent-count">@Model.GrandTotals.OthersAbsent</span>
+                        <span class="absent-count">@Model.GrandTotals.OthersAbsent</span> /
+                        <span class="layoff-count">@Model.GrandTotals.OthersLayoff</span>
+                        <br /><small>Active: @(Model.GrandTotals.OthersPresent + Model.GrandTotals.OthersAbsent)</small>
                         <br /><small>Total: @Model.GrandTotals.OthersTotal</small>
                     </div>
                     <div class="col-md-2">
                         <strong>SKIVER</strong><br />
                         <span class="present-count">@Model.GrandTotals.SkiverPresent</span> /
-                        <span class="absent-count">@Model.GrandTotals.SkiverAbsent</span>
+                        <span class="absent-count">@Model.GrandTotals.SkiverAbsent</span> /
+                        <span class="layoff-count">@Model.GrandTotals.SkiverLayoff</span>
+                        <br /><small>Active: @(Model.GrandTotals.SkiverPresent + Model.GrandTotals.SkiverAbsent)</small>
                         <br /><small>Total: @Model.GrandTotals.SkiverTotal</small>
                     </div>
                     <div class="col-md-2">
                         <strong>STITCHER</strong><br />
                         <span class="present-count">@Model.GrandTotals.StitcherPresent</span> /
-                        <span class="absent-count">@Model.GrandTotals.StitcherAbsent</span>
+                        <span class="absent-count">@Model.GrandTotals.StitcherAbsent</span> /
+                        <span class="layoff-count">@Model.GrandTotals.StitcherLayoff</span>
+                        <br /><small>Active: @(Model.GrandTotals.StitcherPresent + Model.GrandTotals.StitcherAbsent)</small>
                         <br /><small>Total: @Model.GrandTotals.StitcherTotal</small>
                     </div>
                     <div class="col-md-2">
                         <strong>GRAND TOTAL</strong><br />
                         <span class="present-count">@Model.GrandTotals.TotalPresent</span> /
-                        <span class="absent-count">@Model.GrandTotals.TotalAbsent</span>
+                        <span class="absent-count">@Model.GrandTotals.TotalAbsent</span> /
+                        <span class="layoff-count">@Model.GrandTotals.TotalLayoff</span>
+                        <br /><small>Active: @(Model.GrandTotals.TotalPresent + Model.GrandTotals.TotalAbsent)</small>
                         <br /><small>Total: @Model.GrandTotals.GrandTotal</small>
+                        @{
+                            var activeTotal = Model.GrandTotals.TotalPresent + Model.GrandTotals.TotalAbsent;
+                            var attendancePercentage = activeTotal > 0 ?
+                            Math.Round((double)(Model.GrandTotals.TotalPresent + Model.GrandTotals.TotalLayoff) / Model.GrandTotals.GrandTotal * 100, 1) : 0;
+                        }
+                        <br /><small>Attendance: @attendancePercentage%</small>
                     </div>
                 </div>
             </div>
@@ -239,11 +260,11 @@
                     </div>
                     <div class="department-content">
 
-                        <!-- Department Totals -->
+                        <!-- Department Totals with Layoff -->
                         <table class="main-section-table">
                             <thead>
                                 <tr>
-                                    <th>Main Section</th>
+                                    <th>Status</th>
                                     <th>ATTACHER</th>
                                     <th>FOLDER</th>
                                     <th>OTHERS</th>
@@ -272,6 +293,24 @@
                                     <td class="absent-count">@department.DepartmentTotals.TotalAbsent</td>
                                 </tr>
                                 <tr class="totals-row">
+                                    <td><strong>Layoff</strong></td>
+                                    <td class="layoff-count">@department.DepartmentTotals.AttacherLayoff</td>
+                                    <td class="layoff-count">@department.DepartmentTotals.FolderLayoff</td>
+                                    <td class="layoff-count">@department.DepartmentTotals.OthersLayoff</td>
+                                    <td class="layoff-count">@department.DepartmentTotals.SkiverLayoff</td>
+                                    <td class="layoff-count">@department.DepartmentTotals.StitcherLayoff</td>
+                                    <td class="layoff-count">@department.DepartmentTotals.TotalLayoff</td>
+                                </tr>
+                                <tr class="totals-row" style="background-color: #d1ecf1;">
+                                    <td><strong>Active</strong></td>
+                                    <td class="active-count">@(department.DepartmentTotals.AttacherPresent + department.DepartmentTotals.AttacherAbsent)</td>
+                                    <td class="active-count">@(department.DepartmentTotals.FolderPresent + department.DepartmentTotals.FolderAbsent)</td>
+                                    <td class="active-count">@(department.DepartmentTotals.OthersPresent + department.DepartmentTotals.OthersAbsent)</td>
+                                    <td class="active-count">@(department.DepartmentTotals.SkiverPresent + department.DepartmentTotals.SkiverAbsent)</td>
+                                    <td class="active-count">@(department.DepartmentTotals.StitcherPresent + department.DepartmentTotals.StitcherAbsent)</td>
+                                    <td class="active-count">@(department.DepartmentTotals.TotalPresent + department.DepartmentTotals.TotalAbsent)</td>
+                                </tr>
+                                <tr class="totals-row" style="background-color: #f8f9fa;">
                                     <td><strong>Total</strong></td>
                                     <td>@department.DepartmentTotals.AttacherTotal</td>
                                     <td>@department.DepartmentTotals.FolderTotal</td>
@@ -280,10 +319,44 @@
                                     <td>@department.DepartmentTotals.StitcherTotal</td>
                                     <td>@department.DepartmentTotals.GrandTotal</td>
                                 </tr>
+                                <tr class="totals-row" style="background-color: #d4edda;">
+                                    <td><strong>Attendance %</strong></td>
+                                    @{
+                                        var attacherActive = department.DepartmentTotals.AttacherPresent + department.DepartmentTotals.AttacherAbsent;
+                                        var attacherPercentage = department.DepartmentTotals.AttacherTotal > 0 ?
+                                        Math.Round((double)(department.DepartmentTotals.AttacherPresent + department.DepartmentTotals.AttacherLayoff) / department.DepartmentTotals.AttacherTotal * 100, 1) : 0;
+
+                                        var folderActive = department.DepartmentTotals.FolderPresent + department.DepartmentTotals.FolderAbsent;
+                                        var folderPercentage = department.DepartmentTotals.FolderTotal > 0 ?
+                                        Math.Round((double)(department.DepartmentTotals.FolderPresent + department.DepartmentTotals.FolderLayoff) / department.DepartmentTotals.FolderTotal * 100, 1) : 0;
+
+                                        var othersActive = department.DepartmentTotals.OthersPresent + department.DepartmentTotals.OthersAbsent;
+                                        var othersPercentage = department.DepartmentTotals.OthersTotal > 0 ?
+                                        Math.Round((double)(department.DepartmentTotals.OthersPresent + department.DepartmentTotals.OthersLayoff) / department.DepartmentTotals.OthersTotal * 100, 1) : 0;
+
+                                        var skiverActive = department.DepartmentTotals.SkiverPresent + department.DepartmentTotals.SkiverAbsent;
+                                        var skiverPercentage = department.DepartmentTotals.SkiverTotal > 0 ?
+                                        Math.Round((double)(department.DepartmentTotals.SkiverPresent + department.DepartmentTotals.SkiverLayoff) / department.DepartmentTotals.SkiverTotal * 100, 1) : 0;
+
+                                        var stitcherActive = department.DepartmentTotals.StitcherPresent + department.DepartmentTotals.StitcherAbsent;
+                                        var stitcherPercentage = department.DepartmentTotals.StitcherTotal > 0 ?
+                                        Math.Round((double)(department.DepartmentTotals.StitcherPresent + department.DepartmentTotals.StitcherLayoff) / department.DepartmentTotals.StitcherTotal * 100, 1) : 0;
+
+                                        var deptTotalActive = department.DepartmentTotals.TotalPresent + department.DepartmentTotals.TotalAbsent;
+                                        var deptPercentage = department.DepartmentTotals.GrandTotal > 0 ?
+                                        Math.Round((double)(department.DepartmentTotals.TotalPresent + department.DepartmentTotals.TotalLayoff) / department.DepartmentTotals.GrandTotal * 100, 1) : 0;
+                                    }
+                                    <td>@attacherPercentage%</td>
+                                    <td>@folderPercentage%</td>
+                                    <td>@othersPercentage%</td>
+                                    <td>@skiverPercentage%</td>
+                                    <td>@stitcherPercentage%</td>
+                                    <td><strong>@deptPercentage%</strong></td>
+                                </tr>
                             </tbody>
                         </table>
 
-                        <!-- NOW (Nature of Work) Details -->
+                        <!-- NOW (Nature of Work) Details with Layoff -->
                         @foreach (var mainSection in department.MainSections)
                         {
                             <div class="now-details">
@@ -294,24 +367,42 @@
                                             <th>Section</th>
                                             <th>Present</th>
                                             <th>Absent</th>
+                                            <th>Layoff</th>
+                                            <th>Active</th>
                                             <th>Total</th>
+                                            <th>Attendance %</th>
                                         </tr>
                                     </thead>
                                     <tbody>
                                         @foreach (var nowItem in mainSection.NOWData)
                                         {
+                                            var nowActive = nowItem.Present + nowItem.Absent;
+                                            var nowPercentage = nowItem.Total > 0 ?
+                                            Math.Round((double)(nowItem.Present + nowItem.Layoff) / nowItem.Total * 100, 1) : 0;
+
                                             <tr>
                                                 <td>@nowItem.NOWName</td>
                                                 <td class="present-count">@nowItem.Present</td>
                                                 <td class="absent-count">@nowItem.Absent</td>
+                                                <td class="layoff-count">@nowItem.Layoff</td>
+                                                <td class="active-count">@nowActive</td>
                                                 <td>@nowItem.Total</td>
+                                                <td>@nowPercentage%</td>
                                             </tr>
+                                        }
+                                        @{
+                                            var sectionActive = mainSection.TotalPresent + mainSection.TotalAbsent;
+                                            var sectionPercentage = mainSection.Total > 0 ?
+                                            Math.Round((double)(mainSection.TotalPresent + mainSection.TotalLayoff) / mainSection.Total * 100, 1) : 0;
                                         }
                                         <tr class="totals-row">
                                             <td><strong>Section Total</strong></td>
                                             <td class="present-count"><strong>@mainSection.TotalPresent</strong></td>
                                             <td class="absent-count"><strong>@mainSection.TotalAbsent</strong></td>
+                                            <td class="layoff-count"><strong>@mainSection.TotalLayoff</strong></td>
+                                            <td class="active-count"><strong>@sectionActive</strong></td>
                                             <td><strong>@mainSection.Total</strong></td>
+                                            <td><strong>@sectionPercentage%</strong></td>
                                         </tr>
                                     </tbody>
                                 </table>
@@ -331,37 +422,6 @@
     </div>
 </div>
 
-<!-- Add Department Modal -->
-<div class="modal fade" id="addDepartmentModal" tabindex="-1" role="dialog">
-    <div class="modal-dialog" role="document">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title">Add New Department</h5>
-                <button type="button" class="close" data-dismiss="modal">
-                    <span>&times;</span>
-                </button>
-            </div>
-            <div class="modal-body">
-                <form id="addDepartmentForm">
-                    <div class="form-group">
-                        <label for="departmentName">Department Name:</label>
-                        <input type="text" class="form-control" id="departmentName" name="departmentName" required>
-                    </div>
-                    <div class="form-group">
-                        <label for="departmentCompany">Company:</label>
-                        @Html.DropDownListFor(m => m.SelectedCompanyCode, Model.CompanySelectList,
-                        new { @class = "form-control", id = "departmentCompany", name = "companyCode" })
-                    </div>
-                </form>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
-                <button type="button" class="btn btn-primary" onclick="addDepartment()">Add Department</button>
-            </div>
-        </div>
-    </div>
-</div>
-
 <script>
     function toggleDepartment(element) {
         const content = element.nextElementSibling;
@@ -374,46 +434,6 @@
             content.classList.add('active');
             element.classList.add('active');
         }
-    }
-
-    function showAddDepartmentModal() {
-        $('#addDepartmentModal').modal('show');
-    }
-
-    function addDepartment() {
-        const departmentName = document.getElementById('departmentName').value;
-        const companyCode = document.getElementById('departmentCompany').value;
-
-        if (!departmentName.trim()) {
-            alert('Please enter a department name');
-            return;
-        }
-
-        // AJAX call to add department
-        fetch('/Home/AddDepartment', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-                departmentName: departmentName,
-                companyCode: parseInt(companyCode)
-            })
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                alert('Department added successfully!');
-                $('#addDepartmentModal').modal('hide');
-                location.reload(); // Refresh the page to show new department
-            } else {
-                alert('Error: ' + data.message);
-            }
-        })
-        .catch(error => {
-            console.error('Error:', error);
-            alert('An error occurred while adding the department');
-        });
     }
 
     // Auto-refresh functionality
@@ -434,6 +454,3 @@
         <span class="sr-only">Loading...</span>
     </div>
 </div>
-
-<!-- Include the separate JavaScript file -->
-<script src="~/js/DepartmentAttendance.js"></script>
