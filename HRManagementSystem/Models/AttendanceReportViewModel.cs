@@ -17,14 +17,7 @@ namespace HRManagementSystem.Models
         // ADD THIS: SelectList for better dropdown handling
         public SelectList CompanySelectList { get; set; }
     }
-    //public class AttendanceStatsWithLayoff
-    //{
-    //    public int TotalEmployees { get; set; }
-    //    public int PresentEmployees { get; set; }
-    //    public int AbsentEmployees { get; set; }
-    //    public int LayoffEmployees { get; set; } = 0; // NEW
-    //    public decimal AttendancePercentage { get; set; } // NEW - calculated as Present/(Present+Absent) excluding layoff
-    //}
+
     public class AttendanceByDesignation
     {
         public string ParentDesignation { get; set; }
