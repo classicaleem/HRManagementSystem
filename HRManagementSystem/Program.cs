@@ -1,5 +1,6 @@
 using HRManagementSystem.Data;
 using HRManagementSystem.Hubs;
+using HRManagementSystem.Repositories.EmployeeStatus;
 using HRManagementSystem.Services;
 using Microsoft.AspNetCore.Authentication.Cookies;
 
@@ -46,6 +47,7 @@ builder.Services.AddScoped<IAttendanceRepository, AttendanceRepository>();
 builder.Services.AddScoped<IAttendanceProcessorService, AttendanceProcessorService>();
 builder.Services.AddScoped<IAttendanceNotificationService, AttendanceNotificationService>();
 builder.Services.AddScoped<IAttendanceSummaryRepository, AttendanceSummaryRepository>();
+builder.Services.AddScoped<IEmployeeStatusRepository, EmployeeStatusRepository>();
 builder.Services.AddHostedService<AttendanceBackgroundService>();
 
 var app = builder.Build();

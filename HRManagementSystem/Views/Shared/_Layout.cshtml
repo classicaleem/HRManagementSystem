@@ -641,6 +641,13 @@
                                                     <span>Attendance summary</span>
                                                 </a>
                                             </li>
+                                            <li>
+                                                <a class="dropdown-item @(ViewContext.RouteData.Values["Controller"].ToString() == "EmployeeStatus" ? "active" : "")"
+                                                   asp-controller="EmployeeStatus" asp-action="Index">
+                                                    <i class="fas fa-users-cog"></i>
+                                                    <span>Employee Status Management</span>
+                                                </a>
+                                            </li>
                                         }
                                        @*  <li>
                                             <a class="dropdown-item @(ViewContext.RouteData.Values["Action"].ToString() == "CategoryAttendanceReport" ? "active" : "")" asp-controller="Home" asp-action="CategoryAttendanceReport">

@@ -1,0 +1,489 @@
+﻿@model HRManagementSystem.Models.EmployeeStatus.EmployeeStatusViewModel
+@{
+    ViewData["Title"] = "Employee Status Management";
+    Layout = "~/Views/Shared/_Layout.cshtml";
+}
+
+<div class="container-fluid">
+    <!-- Simple Header -->
+    <div class="row mb-3">
+        <div class="col-12">
+            <h4>Employee Status Management</h4>
+        </div>
+    </div>
+
+    <!-- Filters -->
+    <div class="row mb-3">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-body">
+                    <form id="filterForm" class="row g-2">
+                        @if (ViewBag.UserRole == "Admin")
+                        {
+                            <div class="col-md-2">
+                                <label class="form-label">Company</label>
+                                @Html.DropDownListFor(m => m.SelectedCompanyCode, Model.Companies, "All Companies", new { @class = "form-select form-select-sm", id = "companyCode" })
+                            </div>
+                        }
+                        else
+                        {
+                            <input type="hidden" id="companyCode" value="@Model.SelectedCompanyCode" />
+                        }
+
+                        <div class="col-md-2">
+                            <label class="form-label">Department</label>
+                            <select class="form-select form-select-sm" id="department">
+                                <option value="">All Departments</option>
+                            </select>
+                        </div>
+
+                        <div class="col-md-2">
+                            <label class="form-label">Category</label>
+                            <select class="form-select form-select-sm" id="category">
+                                <option value="">All Categories</option>
+                            </select>
+                        </div>
+
+                        <div class="col-md-2">
+                            <label class="form-label">Designation</label>
+                            <select class="form-select form-select-sm" id="designation">
+                                <option value="">All Designations</option>
+                            </select>
+                        </div>
+
+                        <div class="col-md-2">
+                            <label class="form-label">Status Filter</label>
+                            <select class="form-select form-select-sm" id="statusFilter">
+                                <option value="All">All</option>
+                                <option value="Active" selected>Active</option>
+                                <option value="LongAbsent">Long Absent</option>
+                                <option value="Layoff">Layoff</option>
+                            </select>
+                        </div>
+
+                        <div class="col-md-2">
+                            <label class="form-label">&nbsp;</label>
+                            <div class="d-flex gap-1">
+                                <button type="button" class="btn btn-primary btn-sm" id="btnSearch">Search</button>
+                                <button type="button" class="btn btn-secondary btn-sm" id="btnReset">Reset</button>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bulk Update Panel -->
+    <div class="row mb-3" id="bulkUpdateRow" style="display:none;">
+        <div class="col-12">
+            <div class="card border-warning">
+                <div class="card-body">
+                    <h6>Bulk Update <span class="badge bg-primary" id="selectedCount">0 selected</span></h6>
+                    <form id="bulkUpdateForm" class="row g-2">
+                        <div class="col-md-2">
+                            <label class="form-label">Long Absent</label>
+                            <select class="form-select form-select-sm" id="bulkLongAbsent">
+                                <option value="">No Change</option>
+                                <option value="true">Set Long Absent</option>
+                                <option value="false">Remove Long Absent</option>
+                            </select>
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label">Layoff</label>
+                            <select class="form-select form-select-sm" id="bulkLayoff">
+                                <option value="">No Change</option>
+                                <option value="true">Set Layoff</option>
+                                <option value="false">Remove Layoff</option>
+                            </select>
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label">Shift</label>
+                            <select class="form-select form-select-sm" id="bulkShift">
+                                <option value="">No Change</option>
+                                <option value="G">General (G)</option>
+                                <option value="A">Shift A</option>
+                                <option value="B">Shift B</option>
+                                <option value="C">Shift C</option>
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label">Remarks</label>
+                            <input type="text" class="form-control form-control-sm" id="bulkRemarks" placeholder="Update reason">
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label">&nbsp;</label>
+                            <div class="d-flex gap-1">
+                                <button type="button" class="btn btn-success btn-sm" id="btnBulkUpdate">Update</button>
+                                <button type="button" class="btn btn-outline-secondary btn-sm" id="btnClearSelection">Clear</button>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Data Table -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-body p-2">
+                    <div class="table-responsive">
+                        <table id="employeeStatusTable" class="table table-sm table-bordered table-hover">
+                            <thead class="table-light">
+                                <tr>
+                                    <th style="width: 30px;">
+                                        <input type="checkbox" id="selectAll" class="form-check-input">
+                                    </th>
+                                    <th>Company</th>
+                                    <th>Emp Code</th>
+                                    <th>Punch No</th>
+                                    <th>Employee Name</th>
+                                    <th>Department</th>
+                                    <th>Designation</th>
+                                    <th>Category</th>
+                                    <th>Section</th>
+                                    <th>Long Absent</th>
+                                    <th>Layoff</th>
+                                    <th>Shift</th>
+                                </tr>
+                            </thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
+    <script src="https://cdn.datatables.net/1.13.6/js/dataTables.bootstrap5.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/toastr.js/latest/toastr.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
+    <link rel="stylesheet" href="https://cdn.datatables.net/1.13.6/css/dataTables.bootstrap5.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/toastr.js/latest/toastr.min.css">
+
+    <script>
+        $(document).ready(function() {
+            var dataTable;
+            var selectedEmployees = [];
+
+            initializeDataTable();
+            loadFilterOptions();
+
+            // Event Handlers
+            $('#btnSearch').click(function() {
+                dataTable.ajax.reload();
+                clearSelection();
+            });
+
+            $('#btnReset').click(function() {
+                $('#filterForm')[0].reset();
+                $('#statusFilter').val('Active');
+                loadFilterOptions();
+                dataTable.ajax.reload();
+                clearSelection();
+            });
+
+            $('#btnBulkUpdate').click(function() {
+                performBulkUpdate();
+            });
+
+            $('#btnClearSelection').click(function() {
+                clearSelection();
+            });
+
+            $('#companyCode').change(function() {
+                loadDepartments();
+                loadCategories();
+                loadDesignations();
+            });
+
+            $('#department').change(function() {
+                if ($(this).val()) {
+                    loadDesignationsByDepartment($(this).val());
+                } else {
+                    loadDesignations();
+                }
+            });
+
+            $('#selectAll').change(function() {
+                var isChecked = $(this).is(':checked');
+                $('.employee-checkbox').prop('checked', isChecked);
+                updateSelectedEmployees();
+            });
+
+            function initializeDataTable() {
+                dataTable = $('#employeeStatusTable').DataTable({
+                    processing: true,
+                    serverSide: true,
+                    ajax: {
+                        url: '@Url.Action("GetEmployeeData", "EmployeeStatus")',
+                        type: 'POST',
+                        contentType: 'application/json',
+                        data: function(d) {
+                            return JSON.stringify({
+                                draw: d.draw,
+                                start: d.start,
+                                length: d.length,
+                                searchValue: d.search.value,
+                                sortColumn: d.order[0].column - 1,
+                                sortDirection: d.order[0].dir,
+                                columns: d.columns.slice(1).map(c => c.data),
+                                companyCode: $('#companyCode').val() || 0,
+                                department: $('#department').val(),
+                                category: $('#category').val(),
+                                designation: $('#designation').val(),
+                                statusFilter: $('#statusFilter').val()
+                            });
+                        },
+                        error: function(xhr, error, thrown) {
+                            toastr.error('Error loading data. Please try again.');
+                        }
+                    },
+                    columns: [
+                        {
+                            data: null,
+                            orderable: false,
+                            searchable: false,
+                            render: function(data, type, row) {
+                                return `<input type="checkbox" class="employee-checkbox form-check-input" data-employee-code="${row.employeeCode}">`;
+                            }
+                        },
+                        { data: 'companyName', name: 'CompanyName' },
+                        { data: 'employeeCode', name: 'EmployeeCode' },
+                        { data: 'punchNo', name: 'PunchNo' },
+                        { data: 'employeeName', name: 'EmployeeName' },
+                        { data: 'department', name: 'Department' },
+                        { data: 'designation', name: 'Designation' },
+                        { data: 'category', name: 'Category' },
+                        { data: 'section', name: 'Section' },
+                        {
+                            data: 'longAbsent',
+                            name: 'LongAbsent',
+                            render: function(data, type, row) {
+                                return data ? '<span class="badge bg-warning">Yes</span>' : '<span class="badge bg-success">No</span>';
+                            }
+                        },
+                        {
+                            data: 'layoff',
+                            name: 'Layoff',
+                            render: function(data, type, row) {
+                                return data ? '<span class="badge bg-danger">Yes</span>' : '<span class="badge bg-success">No</span>';
+                            }
+                        },
+                        {
+                            data: 'shift',
+                            name: 'Shift',
+                            render: function(data, type, row) {
+                                var shift = data || 'G';
+                                return `<span class="badge bg-info">${shift}</span>`;
+                            }
+                        }
+                    ],
+                    order: [[4, 'asc']],
+                    pageLength: 25,
+                    language: {
+                        processing: 'Loading...',
+                        emptyTable: 'No employee records found',
+                        zeroRecords: 'No matching records found'
+                    },
+                    drawCallback: function() {
+                        $('.employee-checkbox').off('change').on('change', function() {
+                            updateSelectedEmployees();
+                        });
+                    }
+                });
+            }
+
+            function updateSelectedEmployees() {
+                selectedEmployees = [];
+                $('.employee-checkbox:checked').each(function() {
+                    selectedEmployees.push($(this).data('employee-code'));
+                });
+
+                $('#selectedCount').text(selectedEmployees.length + ' selected');
+
+                if (selectedEmployees.length > 0) {
+                    $('#bulkUpdateRow').show();
+                } else {
+                    $('#bulkUpdateRow').hide();
+                }
+
+                var totalCheckboxes = $('.employee-checkbox').length;
+                var checkedCheckboxes = $('.employee-checkbox:checked').length;
+
+                if (checkedCheckboxes === 0) {
+                    $('#selectAll').prop('indeterminate', false).prop('checked', false);
+                } else if (checkedCheckboxes === totalCheckboxes) {
+                    $('#selectAll').prop('indeterminate', false).prop('checked', true);
+                } else {
+                    $('#selectAll').prop('indeterminate', true);
+                }
+            }
+
+            function clearSelection() {
+                selectedEmployees = [];
+                $('.employee-checkbox').prop('checked', false);
+                $('#selectAll').prop('checked', false).prop('indeterminate', false);
+                $('#bulkUpdateRow').hide();
+                $('#selectedCount').text('0 selected');
+                $('#bulkUpdateForm')[0].reset();
+            }
+
+            function performBulkUpdate() {
+                if (selectedEmployees.length === 0) {
+                    toastr.warning('Please select at least one employee to update.');
+                    return;
+                }
+
+                var longAbsent = $('#bulkLongAbsent').val();
+                var layoff = $('#bulkLayoff').val();
+                var shift = $('#bulkShift').val();
+                var remarks = $('#bulkRemarks').val();
+
+                if (!longAbsent && !layoff && !shift) {
+                    toastr.warning('Please select at least one field to update.');
+                    return;
+                }
+
+                Swal.fire({
+                    title: 'Confirm Update',
+                    text: `Update ${selectedEmployees.length} employee(s)?`,
+                    icon: 'question',
+                    showCancelButton: true,
+                    confirmButtonText: 'Yes, Update',
+                    cancelButtonText: 'Cancel'
+                }).then((result) => {
+                    if (result.isConfirmed) {
+                        var updateData = {
+                            employeeCodes: selectedEmployees,
+                            remarks: remarks
+                        };
+
+                        if (longAbsent) updateData.longAbsent = longAbsent === 'true';
+                        if (layoff) updateData.layoff = layoff === 'true';
+                        if (shift) updateData.shift = shift;
+
+                        $.ajax({
+                            url: '@Url.Action("UpdateEmployeeStatus", "EmployeeStatus")',
+                            type: 'POST',
+                            contentType: 'application/json',
+                            data: JSON.stringify(updateData),
+                            success: function(response) {
+                                if (response.success) {
+                                    toastr.success(response.message);
+                                    dataTable.ajax.reload();
+                                    clearSelection();
+                                } else {
+                                    toastr.error(response.message);
+                                }
+                            },
+                            error: function(xhr) {
+                                toastr.error('Error updating employee status. Please try again.');
+                            }
+                        });
+                    }
+                });
+            }
+
+            function loadFilterOptions() {
+                loadDepartments();
+                loadCategories();
+                loadDesignations();
+            }
+
+            function loadDepartments() {
+                var companyCode = $('#companyCode').val() || 0;
+                $.get('@Url.Action("GetDepartmentsByCompany", "EmployeeStatus")', { companyCode: companyCode }, function(data) {
+                    var select = $('#department');
+                    var currentValue = select.val();
+                    select.empty().append('<option value="">All Departments</option>');
+                    $.each(data, function(i, item) {
+                        select.append($('<option></option>').val(item).text(item));
+                    });
+                    if (currentValue) select.val(currentValue);
+                });
+            }
+
+            function loadCategories() {
+                @if (Model.Categories != null)
+                {
+                        @:var categories = @Html.Raw(Json.Serialize(Model.Categories));
+                        @:var select = $('#category');
+                        @:var currentValue = select.val();
+                        @:select.empty().append('<option value="">All Categories</option>');
+                        @:$.each(categories, function(i, item) {
+                            @:select.append($('<option></option>').val(item.value).text(item.text));
+                        @:});
+                        @:if (currentValue) select.val(currentValue);
+                }
+            }
+
+            function loadDesignations() {
+                @if (Model.Designations != null)
+                {
+                        @:var designations = @Html.Raw(Json.Serialize(Model.Designations));
+                        @:var select = $('#designation');
+                        @:var currentValue = select.val();
+                        @:select.empty().append('<option value="">All Designations</option>');
+                        @:$.each(designations, function(i, item) {
+                            @:select.append($('<option></option>').val(item.value).text(item.text));
+                        @:});
+                        @:if (currentValue) select.val(currentValue);
+                }
+            }
+
+            function loadDesignationsByDepartment(department) {
+                var companyCode = $('#companyCode').val() || 0;
+                $.get('@Url.Action("GetDesignationsByDepartment", "EmployeeStatus")',
+                    { department: department, companyCode: companyCode },
+                    function(data) {
+                        var select = $('#designation');
+                        select.empty().append('<option value="">All Designations</option>');
+                        $.each(data, function(i, item) {
+                            select.append($('<option></option>').val(item).text(item));
+                        });
+                    }
+                );
+            }
+
+            // Configure toastr
+            toastr.options = {
+                "closeButton": true,
+                "progressBar": true,
+                "positionClass": "toast-top-right",
+                "timeOut": "3000"
+            };
+        });
+    </script>
+
+    <style>
+        .table-sm th, .table-sm td {
+            padding: 0.4rem;
+            font-size: 0.875rem;
+        }
+
+        .form-select-sm, .form-control-sm {
+            padding: 0.25rem 0.5rem;
+            font-size: 0.875rem;
+        }
+
+        .btn-sm {
+            padding: 0.25rem 0.5rem;
+            font-size: 0.875rem;
+        }
+
+        .badge {
+            font-size: 0.75em;
+        }
+
+        .card {
+            box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+        }
+    </style>
+}
