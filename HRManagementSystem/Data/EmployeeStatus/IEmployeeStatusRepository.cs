@@ -10,5 +10,7 @@ namespace HRManagementSystem.Repositories.EmployeeStatus
         Task<List<string>> GetCategoriesAsync(int companyCode);
         Task<List<string>> GetDesignationsAsync(int companyCode);
         Task<List<string>> GetDesignationsByDepartmentAsync(string department, int companyCode);
+
+        Task<EmployeeStatusDataTableResponse<EmployeeStatusData>> GetEmployeeDataForExportAsync(EmployeeStatusDataTableRequest request);
     }
 }

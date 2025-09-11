@@ -29,6 +29,12 @@ namespace HRManagementSystem.Models.EmployeeStatus
         public bool LongAbsent { get; set; } = false;
         public bool Layoff { get; set; } = false;
         public string Shift { get; set; } = "G";
+        //public DateTime? FirstPunchTime { get; set; }
+        //public string AttendanceStatus { get; set; }
+
+        public string FirstPunchTime { get; set; }
+        public string AttendanceStatus { get; set; }
+
     }
 
     public class EmployeeStatusDataTableRequest

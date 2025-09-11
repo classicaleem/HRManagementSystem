@@ -5,6 +5,16 @@
 }
 
 <div class="container-fluid">
+    <!-- Loading Spinner Overlay -->
+    <div id="loadingOverlay" class="loading-overlay" style="display: none;">
+        <div class="loading-spinner">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+            <div class="loading-text mt-2">Generating Excel Report...</div>
+        </div>
+    </div>
+
     <!-- Simple Header -->
     <div class="row mb-3">
         <div class="col-12">
@@ -64,8 +74,15 @@
                         <div class="col-md-2">
                             <label class="form-label">&nbsp;</label>
                             <div class="d-flex gap-1">
-                                <button type="button" class="btn btn-primary btn-sm" id="btnSearch">Search</button>
-                                <button type="button" class="btn btn-secondary btn-sm" id="btnReset">Reset</button>
+                                <button type="button" class="btn btn-primary btn-sm" id="btnSearch">
+                                    <i class="fas fa-search me-1"></i>Search
+                                </button>
+                                <button type="button" class="btn btn-secondary btn-sm" id="btnReset">
+                                    <i class="fas fa-undo me-1"></i>Reset
+                                </button>
+                                <button type="button" class="btn btn-success btn-sm" id="btnExportExcel">
+                                    <i class="fas fa-file-excel me-1"></i>Export
+                                </button>
                             </div>
                         </div>
                     </form>
@@ -104,7 +121,6 @@
                                 <option value="G">General (G)</option>
                                 <option value="F">First(F)</option>
                                 <option value="S">Second(S)</option>
-                               @*  <option value="C">Shift C</option> *@
                             </select>
                         </div>
                         <div class="col-md-3">
@@ -114,8 +130,12 @@
                         <div class="col-md-3">
                             <label class="form-label">&nbsp;</label>
                             <div class="d-flex gap-1">
-                                <button type="button" class="btn btn-success btn-sm" id="btnBulkUpdate">Update</button>
-                                <button type="button" class="btn btn-outline-secondary btn-sm" id="btnClearSelection">Clear</button>
+                                <button type="button" class="btn btn-success btn-sm" id="btnBulkUpdate">
+                                    <i class="fas fa-save me-1"></i>Update
+                                </button>
+                                <button type="button" class="btn btn-outline-secondary btn-sm" id="btnClearSelection">
+                                    <i class="fas fa-times me-1"></i>Clear
+                                </button>
                             </div>
                         </div>
                     </form>
@@ -144,6 +164,8 @@
                                     <th>Designation</th>
                                     <th>Category</th>
                                     <th>Section</th>
+                                    <th>InTime</th>
+                                    <th>Attendance Status</th>
                                     <th>Long Absent</th>
                                     <th>Layoff</th>
                                     <th>Shift</th>
@@ -166,6 +188,7 @@
 
     <link rel="stylesheet" href="https://cdn.datatables.net/1.13.6/css/dataTables.bootstrap5.min.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/toastr.js/latest/toastr.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 
     <script>
         $(document).ready(function() {
@@ -195,6 +218,10 @@
 
             $('#btnClearSelection').click(function() {
                 clearSelection();
+            });
+
+            $('#btnExportExcel').click(function() {
+                exportToExcel();
             });
 
             $('#companyCode').change(function() {
@@ -262,6 +289,65 @@
                         { data: 'designation', name: 'Designation' },
                         { data: 'category', name: 'Category' },
                         { data: 'section', name: 'Section' },
+                        {
+                            data: 'firstPunchTime',
+                            name: 'FirstPunchTime',
+                            render: function(data, type, row) {
+                                if (type === 'display' || type === 'type') {
+                                    if (data && data !== null && data !== '') {
+                                        try {
+                                            var date = new Date(data);
+                                            if (isNaN(date.getTime())) {
+                                                return '<span class="text-muted">Invalid Time</span>';
+                                            }
+
+                                            return date.toLocaleTimeString('en-US', {
+                                                hour: '2-digit',
+                                                minute: '2-digit',
+                                                hour12: true
+                                            });
+                                        } catch (e) {
+                                            return '<span class="text-muted">Invalid Time</span>';
+                                        }
+                                    }
+                                    return '<span class="text-muted">No Punch</span>';
+                                }
+                                return data;
+                            }
+                        },
+                        {
+                            data: 'attendanceStatus',
+                            name: 'AttendanceStatus',
+                            render: function(data, type, row) {
+                                var status = data || 'Unknown';
+                                var badgeClass = 'bg-secondary';
+
+                                switch(status.toLowerCase()) {
+                                    case 'present':
+                                        badgeClass = 'bg-success';
+                                        break;
+                                    case 'absent':
+                                        badgeClass = 'bg-danger';
+                                        break;
+                                    case 'leave':
+                                        badgeClass = 'bg-warning text-dark';
+                                        break;
+                                    case 'half day':
+                                        badgeClass = 'bg-info';
+                                        break;
+                                    case 'late':
+                                        badgeClass = 'bg-warning text-dark';
+                                        break;
+                                    case 'holiday':
+                                        badgeClass = 'bg-primary';
+                                        break;
+                                    default:
+                                        badgeClass = 'bg-secondary';
+                                }
+
+                                return `<span class="badge ${badgeClass}">${status}</span>`;
+                            }
+                        },
                         {
                             data: 'longAbsent',
                             name: 'LongAbsent',
@@ -391,6 +477,79 @@
                 });
             }
 
+            function exportToExcel() {
+                // Show loading overlay
+                showLoadingOverlay();
+
+                // Get current filter values
+                var exportData = {
+                    draw: 1,
+                    start: 0,
+                    length: 999999, // Get all records
+                    searchValue: dataTable.search(),
+                    sortColumn: 0,
+                    sortDirection: 'asc',
+                    columns: ['CompanyName', 'EmployeeCode', 'PunchNo', 'EmployeeName', 'Department', 'Designation', 'Category', 'Section', 'FirstPunchTime', 'AttendanceStatus', 'LongAbsent', 'Layoff', 'Shift'],
+                    companyCode: parseInt($('#companyCode').val()) || 0,
+                    department: $('#department').val() || '',
+                    category: $('#category').val() || '',
+                    designation: $('#designation').val() || '',
+                    statusFilter: $('#statusFilter').val() || 'All'
+                };
+
+                $.ajax({
+                    url: '@Url.Action("ExportFilteredData", "EmployeeStatus")',
+                    type: 'POST',
+                    contentType: 'application/json',
+                    data: JSON.stringify(exportData),
+                    xhrFields: {
+                        responseType: 'blob'
+                    },
+                    success: function(data, status, xhr) {
+                        // Create blob link to download
+                        var blob = new Blob([data], { type: xhr.getResponseHeader('Content-Type') });
+                        var link = document.createElement('a');
+                        link.href = window.URL.createObjectURL(blob);
+
+                        // Get filename from response header or use default
+                        var filename = 'EmployeeStatusReport_' + new Date().toISOString().slice(0,19).replace(/:/g, '-') + '.xlsx';
+                        var disposition = xhr.getResponseHeader('Content-Disposition');
+                        if (disposition && disposition.indexOf('attachment') !== -1) {
+                            var filenameRegex = /filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/;
+                            var matches = filenameRegex.exec(disposition);
+                            if (matches != null && matches[1]) {
+                                filename = matches[1].replace(/['"]/g, '');
+                            }
+                        }
+
+                        link.download = filename;
+                        document.body.appendChild(link);
+                        link.click();
+                        document.body.removeChild(link);
+
+                        toastr.success('Excel file exported successfully!');
+                    },
+                    error: function(xhr, status, error) {
+                        console.error('Export error:', error);
+                        toastr.error('Error exporting Excel file. Please try again.');
+                    },
+                    complete: function() {
+                        // Hide loading overlay
+                        hideLoadingOverlay();
+                    }
+                });
+            }
+
+            function showLoadingOverlay() {
+                $('#loadingOverlay').fadeIn(300);
+                $('body').addClass('loading-active');
+            }
+
+            function hideLoadingOverlay() {
+                $('#loadingOverlay').fadeOut(300);
+                $('body').removeClass('loading-active');
+            }
+
             function loadFilterOptions() {
                 loadDepartments();
                 loadCategories();
@@ -413,28 +572,28 @@
             function loadCategories() {
                 @if (Model.Categories != null)
                 {
-                        @:var categories = @Html.Raw(Json.Serialize(Model.Categories));
-                        @:var select = $('#category');
-                        @:var currentValue = select.val();
-                        @:select.empty().append('<option value="">All Categories</option>');
-                        @:$.each(categories, function(i, item) {
-                            @:select.append($('<option></option>').val(item.value).text(item.text));
-                        @:});
-                        @:if (currentValue) select.val(currentValue);
+                            <text>var categories = @Html.Raw(Json.Serialize(Model.Categories));
+                            var select = $('#category');
+                            var currentValue = select.val();
+                            select.empty().append('<option value="">All Categories</option>');
+                            $.each(categories, function(i, item) {
+                                select.append($('<option></option>').val(item.value).text(item.text));
+                            });
+                            if (currentValue) select.val(currentValue);</text>
                 }
             }
 
             function loadDesignations() {
                 @if (Model.Designations != null)
                 {
-                        @:var designations = @Html.Raw(Json.Serialize(Model.Designations));
-                        @:var select = $('#designation');
-                        @:var currentValue = select.val();
-                        @:select.empty().append('<option value="">All Designations</option>');
-                        @:$.each(designations, function(i, item) {
-                            @:select.append($('<option></option>').val(item.value).text(item.text));
-                        @:});
-                        @:if (currentValue) select.val(currentValue);
+                            <text>var designations = @Html.Raw(Json.Serialize(Model.Designations));
+                            var select = $('#designation');
+                            var currentValue = select.val();
+                            select.empty().append('<option value="">All Designations</option>');
+                            $.each(designations, function(i, item) {
+                                select.append($('<option></option>').val(item.value).text(item.text));
+                            });
+                            if (currentValue) select.val(currentValue);</text>
                 }
             }
 
@@ -463,6 +622,40 @@
     </script>
 
     <style>
+        /* Loading Overlay Styles */
+        .loading-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.7);
+            z-index: 9999;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .loading-spinner {
+            text-align: center;
+            color: white;
+        }
+
+            .loading-spinner .spinner-border {
+                width: 3rem;
+                height: 3rem;
+            }
+
+        .loading-text {
+            font-size: 1.1rem;
+            font-weight: 500;
+        }
+
+        body.loading-active {
+            overflow: hidden;
+        }
+
+        /* Table and Form Styles */
         .table-sm th, .table-sm td {
             padding: 0.4rem;
             font-size: 0.875rem;
@@ -484,6 +677,66 @@
 
         .card {
             box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+        }
+
+        .text-muted {
+            color: #6c757d !important;
+        }
+
+        /* Button Icons */
+        .btn i {
+            font-size: 0.8rem;
+        }
+
+        /* DataTable Processing Indicator */
+        .dataTables_processing {
+            background: rgba(255, 255, 255, 0.9) !important;
+            border: 1px solid #ddd !important;
+            border-radius: 4px !important;
+            color: #333 !important;
+            font-size: 1rem !important;
+            padding: 20px !important;
+        }
+
+        /* Responsive adjustments */
+        @@media (max-width: 768px) {
+            .loading-spinner .spinner-border
+
+        {
+            width: 2rem;
+            height: 2rem;
+        }
+
+        .loading-text {
+            font-size: 1rem;
+        }
+
+        .btn-sm {
+            padding: 0.2rem 0.4rem;
+            font-size: 0.8rem;
+        }
+
+        }
+
+        /* Hover effects */
+        .btn:hover {
+            transform: translateY(-1px);
+            transition: transform 0.2s ease;
+        }
+
+        .table-hover tbody tr:hover {
+            background-color: rgba(0, 123, 255, 0.1);
+        }
+
+        /* Custom checkbox styles */
+        .form-check-input:checked {
+            background-color: #0d6efd;
+            border-color: #0d6efd;
+        }
+
+        .form-check-input:indeterminate {
+            background-color: #6c757d;
+            border-color: #6c757d;
         }
     </style>
 }
