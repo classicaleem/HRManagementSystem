@@ -48,6 +48,7 @@ builder.Services.AddScoped<IAttendanceProcessorService, AttendanceProcessorServi
 builder.Services.AddScoped<IAttendanceNotificationService, AttendanceNotificationService>();
 builder.Services.AddScoped<IAttendanceSummaryRepository, AttendanceSummaryRepository>();
 builder.Services.AddScoped<IEmployeeStatusRepository, EmployeeStatusRepository>();
+builder.Services.AddScoped<ICostsDashboardRepository, CostsDashboardRepository>();
 builder.Services.AddHostedService<AttendanceBackgroundService>();
 
 var app = builder.Build();
