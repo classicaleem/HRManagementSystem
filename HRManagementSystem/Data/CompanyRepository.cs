@@ -105,6 +105,26 @@ namespace HRManagementSystem.Data
             }
         }
 
+
+        // --- Add this method ---
+        public async Task<Company> GetCompanyByIdAsync(int companyCode)
+        {
+            if (companyCode == 0) return null; // Handle "ALL" case gracefully
+
+            using var connection = new SqlConnection(_connectionString);
+            var sql = "SELECT CompanyCode, CompanyName, cyShortName, IsActive, CreatedDate FROM Companies WHERE CompanyCode = @CompanyCode AND IsActive = 1";
+            try
+            {
+                var company = await connection.QueryFirstOrDefaultAsync<Company>(sql, new { CompanyCode = companyCode });
+                return company; // Returns null if not found
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error getting company by ID {companyCode}: {ex.Message}");
+                return null; // Return null on error
+            }
+        }
+        // --- End Added Method ---
         #endregion
     }
 }

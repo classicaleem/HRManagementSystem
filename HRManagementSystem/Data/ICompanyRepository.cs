@@ -7,6 +7,7 @@ namespace HRManagementSystem.Data
         Task<List<Company>> GetCompaniesAsync();
         Task<List<Company>> GetCompaniesByUserRoleAsync(int roleId, int userCompanyCode);
         Task<bool> AddDepartmentAsync(string departmentName, int companyCode);
+        Task<Company> GetCompanyByIdAsync(int companyCode);
 
     }
 }

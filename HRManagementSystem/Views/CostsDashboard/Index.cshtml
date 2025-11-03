@@ -1,16 +1,17 @@
 ﻿@model HRManagementSystem.Models.CostsDashboard.CostsDashboardViewModel
+@using HRManagementSystem 
 @{
     ViewData["Title"] = "Costs Dashboard";
     Layout = "~/Views/Shared/_Layout.cshtml";
 }
 
-<!-- Include required CSS -->
 <link rel="stylesheet" href="https://cdn.datatables.net/1.11.5/css/dataTables.bootstrap4.min.css">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/select2-bootstrap4-theme@1.0.0/dist/select2-bootstrap4.min.css">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
 
 <style>
+    /* --- Basic & Layout Styles --- */
     body {
         background-color: #f5f6fa;
         font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
@@ -39,6 +40,7 @@
 
     .filter-tabs {
         display: flex;
+        flex-wrap: wrap;
         gap: 15px;
         margin-bottom: 25px;
         background: white;
@@ -49,10 +51,14 @@
     }
 
         .filter-tabs .form-control, .filter-tabs .select2-container {
-            border: 1px solid #e1e8ed;
             border-radius: 6px;
             font-size: 14px;
         }
+
+    .filter-item {
+        flex: 1;
+        min-width: 180px;
+    }
 
     .section-card {
         background: white;
@@ -71,111 +77,9 @@
         background: linear-gradient(90deg, #3498db 0%, #2980b9 100%);
         color: white;
         border-radius: 6px;
-    }
-
-    .summary-section {
-        background: #27ae60;
-        color: white;
-        padding: 10px 15px;
-        border-radius: 6px;
-        margin-bottom: 20px;
-        font-weight: 600;
-    }
-
-    .stats-grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-        gap: 15px;
-        margin-bottom: 25px;
-    }
-
-    .stat-card {
-        background: white;
-        border-radius: 8px;
-        padding: 20px;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-        transition: transform 0.2s, box-shadow 0.2s;
-        border-left: 4px solid;
-    }
-
-        .stat-card:hover {
-            transform: translateY(-3px);
-            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-        }
-
-        .stat-card.blue {
-            border-left-color: #3498db;
-        }
-
-        .stat-card.green {
-            border-left-color: #27ae60;
-        }
-
-        .stat-card.yellow {
-            border-left-color: #f39c12;
-        }
-
-        .stat-card.orange {
-            border-left-color: #e67e22;
-        }
-
-        .stat-card.purple {
-            border-left-color: #9b59b6;
-        }
-
-        .stat-card.red {
-            border-left-color: #e74c3c;
-        }
-
-    .stat-icon {
-        font-size: 28px;
-        margin-bottom: 10px;
-        opacity: 0.8;
-    }
-
-    .stat-card.blue .stat-icon {
-        color: #3498db;
-    }
-
-    .stat-card.green .stat-icon {
-        color: #27ae60;
-    }
-
-    .stat-card.yellow .stat-icon {
-        color: #f39c12;
-    }
-
-    .stat-card.orange .stat-icon {
-        color: #e67e22;
-    }
-
-    .stat-card.purple .stat-icon {
-        color: #9b59b6;
-    }
-
-    .stat-card.red .stat-icon {
-        color: #e74c3c;
-    }
-
-    .stat-value {
-        font-size: 32px;
-        font-weight: 700;
-        margin: 10px 0 5px;
-        color: #2c3e50;
-    }
-
-    .stat-label {
-        font-size: 13px;
-        color: #7f8c8d;
-        font-weight: 500;
-        text-transform: uppercase;
-        letter-spacing: 0.5px;
-    }
-
-    .stat-percentage {
-        font-size: 12px;
-        color: #95a5a6;
-        margin-top: 8px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
     }
 
     .chart-container {
@@ -185,6 +89,7 @@
         box-shadow: 0 2px 4px rgba(0,0,0,0.08);
         margin-bottom: 20px;
         height: 400px;
+        position: relative;
     }
 
     .table-container {
@@ -192,10 +97,246 @@
         border-radius: 8px;
         padding: 20px;
         box-shadow: 0 2px 4px rgba(0,0,0,0.08);
+        overflow-x: auto;
     }
 
-    .data-table {
+    /* --- Select2 Compact Styles --- */
+    .select2-container--bootstrap4 .select2-selection--multiple {
+        min-height: 38px !important;
+        padding-bottom: 0 !important;
+        border-radius: 6px !important;
+        border: 1px solid #e1e8ed !important;
+    }
+
+        .select2-container--bootstrap4 .select2-selection--multiple .select2-selection__rendered {
+            padding: 0 5px !important;
+            display: flex;
+            flex-wrap: nowrap !important;
+            overflow-x: auto !important;
+            white-space: nowrap;
+            scrollbar-width: thin;
+            align-items: center;
+            height: 36px;
+        }
+
+        .select2-container--bootstrap4 .select2-selection--multiple .select2-selection__choice {
+            margin-top: 4px !important;
+            flex-shrink: 0;
+            margin-right: 5px;
+        }
+
+    .select2-container--bootstrap4 .select2-search--inline .select2-search__field {
+        margin-top: 5px !important;
+        min-width: 50px;
+    }
+
+    .select2-container--bootstrap4 .select2-selection--multiple .select2-selection__placeholder {
+        margin-top: 5px;
+        line-height: 26px;
+    }
+
+    .select2-container--bootstrap4.select2-container--focus .select2-selection--multiple {
+        border-color: #80bdff;
+        box-shadow: 0 0 0 0.2rem rgba(0,123,255,.25);
+    }
+
+
+    /* --- Overall Stat Card Styles --- */
+    .stats-grid-overall {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+        gap: 15px;
+    }
+
+    .stat-card {
+        background: white;
+        border-radius: 8px;
+        padding: 15px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        border-left: 4px solid;
+        text-align: center;
+        transition: transform 0.2s ease;
+    }
+
+        .stat-card:hover {
+            transform: translateY(-3px);
+        }
+
+        .stat-card .stat-icon {
+            font-size: 24px;
+            margin-bottom: 8px;
+            opacity: 0.8;
+        }
+
+        .stat-card .stat-value {
+            font-size: 24px;
+            font-weight: 700;
+            margin: 5px 0 2px;
+            color: #2c3e50;
+            line-height: 1.2;
+        }
+
+        .stat-card .stat-label {
+            font-size: 11px;
+            color: #7f8c8d;
+            font-weight: 500;
+            text-transform: uppercase;
+        }
+
+        .stat-card.blue {
+            border-left-color: #3498db;
+        }
+
+            .stat-card.blue .stat-icon {
+                color: #3498db;
+            }
+
+        .stat-card.green {
+            border-left-color: #27ae60;
+        }
+
+            .stat-card.green .stat-icon {
+                color: #27ae60;
+            }
+
+        .stat-card.red {
+            border-left-color: #e74c3c;
+        }
+
+            .stat-card.red .stat-icon {
+                color: #e74c3c;
+            }
+
+        .stat-card.purple {
+            border-left-color: #9b59b6;
+        }
+
+            .stat-card.purple .stat-icon {
+                color: #9b59b6;
+            }
+
+        .stat-card.orange {
+            border-left-color: #e67e22;
+        }
+
+            .stat-card.orange .stat-icon {
+                color: #e67e22;
+            }
+
+    /* --- Circular Progress Bar --- */
+    .progress-circle-container {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        margin-bottom: 20px;
+    }
+
+    .progress-circle {
+        width: 120px;
+        height: 120px;
+        border-radius: 50%;
+        background: conic-gradient(#27ae60 var(--value, 0%), #ecf0f1 var(--value, 0%));
+        position: relative;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        box-shadow: inset 0 0 10px rgba(0,0,0,0.1);
+    }
+
+        .progress-circle::before {
+            content: "";
+            position: absolute;
+            width: 100px;
+            height: 100px;
+            background: #fff;
+            border-radius: 50%;
+        }
+
+    .progress-circle-value {
+        position: relative;
+        font-size: 24px;
+        font-weight: 600;
+        color: #27ae60;
+    }
+
+    .progress-circle-label {
+        text-align: center;
+        font-size: 13px;
+        color: #7f8c8d;
+        margin-top: 10px;
+        font-weight: 500;
+        text-transform: uppercase;
+    }
+
+    /* --- Breakdown Stats Box Styles --- */
+    .stats-breakdown-container {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+        gap: 20px;
+    }
+
+    .stats-box {
+        background: #ffffff;
+        border-radius: 8px;
+        padding: 20px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    }
+
+    .stats-box-header {
+        font-size: 16px;
+        font-weight: 600;
+        color: #2c3e50;
+        margin-bottom: 15px;
+        border-bottom: 1px solid #ecf0f1;
+        padding-bottom: 10px;
+    }
+
+    .stats-box-item {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 10px;
         font-size: 14px;
+    }
+
+    .stats-box-label {
+        color: #7f8c8d;
+    }
+
+    .stats-box-value {
+        font-weight: 600;
+        color: #2c3e50;
+    }
+
+    .stats-box-bar {
+        height: 5px;
+        background-color: #ecf0f1;
+        border-radius: 3px;
+        margin-top: 2px;
+    }
+
+        .stats-box-bar > div {
+            height: 100%;
+            border-radius: 3px;
+            transition: width 0.3s ease;
+        }
+
+    .bar-present {
+        background-color: #27ae60;
+    }
+
+    .bar-absent {
+        background-color: #e74c3c;
+    }
+
+    .bar-leave {
+        background-color: #3498db;
+    }
+
+    /* --- Table Styles --- */
+    .data-table {
+        font-size: 13px;
+        width: 100% !important;
     }
 
         .data-table thead th {
@@ -203,12 +344,14 @@
             border-bottom: 2px solid #dee2e6;
             font-weight: 600;
             color: #495057;
-            padding: 12px 8px;
+            padding: 8px 10px !important;
+            white-space: nowrap;
         }
 
         .data-table tbody td {
-            padding: 10px 8px;
+            padding: 6px 10px !important;
             vertical-align: middle;
+            white-space: nowrap;
         }
 
     .badge {
@@ -234,6 +377,7 @@
         border-radius: 4px;
         overflow: hidden;
         margin-top: 5px;
+        min-width: 80px;
     }
 
     .progress-fill {
@@ -243,34 +387,18 @@
         transition: width 0.3s ease;
     }
 
-    .health-indicator {
-        display: inline-block;
-        width: 10px;
-        height: 10px;
-        border-radius: 50%;
-        margin-right: 5px;
-    }
-
-    .health-good {
-        background: #27ae60;
-    }
-
-    .health-warning {
-        background: #f39c12;
-    }
-
-    .health-bad {
-        background: #e74c3c;
-    }
-
+    /* --- Utility & Loading Styles --- */
     .export-btn {
         background: linear-gradient(90deg, #27ae60, #2ecc71);
         color: white;
         border: none;
-        padding: 10px 20px;
+        padding: 0 20px;
         border-radius: 6px;
         font-weight: 600;
         transition: all 0.3s;
+        height: 38px;
+        line-height: 38px;
+        cursor: pointer;
     }
 
         .export-btn:hover {
@@ -302,51 +430,45 @@
     }
 
     @@keyframes spin {
-        0%
+        0% {
+            transform: rotate(0deg);
+        }
 
-    {
-        transform: rotate(0deg);
+        100% {
+            transform: rotate(360deg);
+        }
     }
 
-    100% {
-        transform: rotate(360deg);
-    }
-
-    }
-
-    .select2-container--bootstrap4 .select2-selection--multiple {
-        min-height: 38px;
-        border-radius: 6px;
-    }
 </style>
 
-<!-- Loading Overlay -->
 <div class="loading-overlay" id="loadingOverlay">
     <div class="spinner"></div>
 </div>
 
-<!-- Dashboard Header -->
 <div class="dashboard-header">
     <h1 class="dashboard-title">Costs Dashboard</h1>
     <div class="generated-date">Generated Date: @DateTime.Now.ToString("yyyy-MM-dd")</div>
 </div>
 
-<!-- Filter Tabs -->
 <div class="filter-tabs">
-    <div style="flex: 1;">
-        <label class="mb-1" style="font-size: 13px; font-weight: 600;">Company</label>
+    <div class="filter-item">
+        <label class="mb-1">Company</label>
         @Html.DropDownListFor(m => m.SelectedCompanyCode, Model.Companies, new { @class = "form-control", id = "companySelect" })
     </div>
-    <div style="flex: 1;">
-        <label class="mb-1" style="font-size: 13px; font-weight: 600;">Categories</label>
-        @Html.ListBoxFor(m => m.SelectedCategories, Model.Categories, new { @class = "form-control", id = "categorySelect", multiple = "multiple" })
+    <div class="filter-item">
+        <label class="mb-1">Categories</label>
+        @Html.ListBoxFor(m => m.SelectedCategories, Model.Categories, new { @class = "form-control select2bs4", id = "categorySelect", multiple = "multiple" })
     </div>
-    <div style="flex: 1;">
-        <label class="mb-1" style="font-size: 13px; font-weight: 600;">Start Date</label>
+    <div class="filter-item">
+        <label class="mb-1">Main Cost Type (U/F/P)</label> @* Changed Label *@
+        @Html.ListBoxFor(m => m.SelectedMainCostTypes, Model.MainCostTypes, new { @class = "form-control select2bs4", id = "mainCostTypeSelect", multiple = "multiple", data_placeholder = "ALL Main Types" }) @* Changed ID and placeholder *@
+    </div>
+    <div class="filter-item">
+        <label class="mb-1">Start Date</label>
         <input type="date" class="form-control" id="startDate" value="@Model.StartDate.ToString("yyyy-MM-dd")" />
     </div>
-    <div style="flex: 1;">
-        <label class="mb-1" style="font-size: 13px; font-weight: 600;">End Date</label>
+    <div class="filter-item">
+        <label class="mb-1">End Date</label>
         <input type="date" class="form-control" id="endDate" value="@Model.EndDate.ToString("yyyy-MM-dd")" />
     </div>
     <div style="padding-top: 20px;">
@@ -356,170 +478,90 @@
     </div>
 </div>
 
-<!-- Summary Section -->
-<div class="summary-section">Summary</div>
-
-<!-- Key Statistics -->
 <div class="section-card">
-    <div class="section-title">Key Statistics</div>
-    <div class="stats-grid">
-        <div class="stat-card blue">
-            <i class="fas fa-percentage stat-icon"></i>
-            <div class="stat-value" id="attendanceRate">@Model.AttendanceSummary.AttendancePercentage%</div>
-            <div class="stat-label">Attendance Rate</div>
-            <div class="stat-percentage">Present: <span id="presentCount">@Model.AttendanceSummary.PresentCount</span></div>
+    <div class="section-title">Overall Summary</div>
+    <div class="row align-items-center">
+        <div class="col-md-3 text-center">
+            <div class="progress-circle-container">
+                <div>
+                    <div class="progress-circle" id="overallAttendanceCircle" style="--value:@(Model.AttendanceSummary.AttendancePercentage)%">
+                        <div class="progress-circle-value" id="overallAttendanceValue">@Model.AttendanceSummary.AttendancePercentage.ToString("0.0")%</div>
+                    </div>
+                    <div class="progress-circle-label">Attendance Rate</div>
+                </div>
+            </div>
         </div>
-
-        <div class="stat-card green">
-            <i class="fas fa-users stat-icon"></i>
-            <div class="stat-value" id="totalEmployees">@Model.Summary.TotalEmployees</div>
-            <div class="stat-label">Total Employees</div>
-            <div class="stat-percentage">Active workforce</div>
-        </div>
-
-        <div class="stat-card yellow">
-            <i class="fas fa-rupee-sign stat-icon"></i>
-            <div class="stat-value" id="totalCost">@Model.Summary.FormattedTotalCost</div>
-            <div class="stat-label">Total Cost</div>
-            <div class="stat-percentage">Budget utilization</div>
-        </div>
-
-        <div class="stat-card orange">
-            <i class="fas fa-chart-line stat-icon"></i>
-            <div class="stat-value" id="averageCost">@Model.Summary.FormattedAverageCost</div>
-            <div class="stat-label">Average Daily Cost</div>
-            <div class="stat-percentage">Per day expense</div>
-        </div>
-
-        <div class="stat-card purple">
-            <i class="fas fa-calendar-check stat-icon"></i>
-            <div class="stat-value" id="presentDays">@Model.Summary.PresentDays</div>
-            <div class="stat-label">Present Days</div>
-            <div class="stat-percentage">Total working days</div>
-        </div>
-
-        <div class="stat-card red">
-            <i class="fas fa-user-times stat-icon"></i>
-            <div class="stat-value" id="absentCost">@Model.Summary.FormattedAbsentCost</div>
-            <div class="stat-label">Absent Cost</div>
-            <div class="stat-percentage">Loss due to absence</div>
+        <div class="col-md-9">
+            <div class="stats-grid-overall">
+                <div class="stat-card green"> <i class="fas fa-users stat-icon"></i> <div class="stat-value" id="totalEmployees">@Model.Summary.TotalEmployees</div> <div class="stat-label">Total Employees</div> </div>
+                <div class="stat-card orange"> <i class="fas fa-rupee-sign stat-icon"></i> <div class="stat-value" id="totalCostOverall">@Model.Summary.FormattedTotalCalculatedCost</div> <div class="stat-label">Total Cost (P+A+L)</div> </div>
+                <div class="stat-card purple"> <i class="fas fa-calendar-day stat-icon"></i> <div class="stat-value" id="totalDaysOverall">@Model.Summary.TotalDays</div> <div class="stat-label">Total Days (P+A+L)</div> </div>
+                <div class="stat-card blue"> <i class="fas fa-hand-holding-usd stat-icon"></i> <div class="stat-value" id="avgCostOverall">@Model.Summary.FormattedAverageCost</div> <div class="stat-label">Avg Daily Cost</div> </div>
+            </div>
         </div>
     </div>
 </div>
 
-<!-- Charts Row -->
+<div class="section-card">
+    <div class="section-title">Attendance Breakdown</div>
+    <div class="stats-breakdown-container">
+        <div class="stats-box">
+            <div class="stats-box-header">Attendance Days (Total: <span id="totalDays">@Model.Summary.TotalDays</span>)</div>
+            <div class="stats-box-item"> <div class="stats-box-label"><i class="fas fa-circle text-success mr-2"></i>Present</div> <div class="stats-box-value"><span id="presentDaysCount">@Model.Summary.PresentDays</span> (<span id="presentDaysPerc">@Model.Summary.PresentDaysPercentage.ToString("0.0")</span>%)</div> </div> <div class="stats-box-bar"><div class="bar-present" id="presentDaysBar" style="width: @Model.Summary.PresentDaysPercentage%;"></div></div>
+            <div class="stats-box-item mt-3"> <div class="stats-box-label"><i class="fas fa-circle text-danger mr-2"></i>Absent</div> <div class="stats-box-value"><span id="absentDaysCount">@Model.Summary.AbsentDays</span> (<span id="absentDaysPerc">@Model.Summary.AbsentDaysPercentage.ToString("0.0")</span>%)</div> </div> <div class="stats-box-bar"><div class="bar-absent" id="absentDaysBar" style="width: @Model.Summary.AbsentDaysPercentage%;"></div></div>
+            <div class="stats-box-item mt-3"> <div class="stats-box-label"><i class="fas fa-circle text-primary mr-2"></i>Leave</div> <div class="stats-box-value"><span id="leaveDaysCount">@Model.Summary.LeaveDays</span> (<span id="leaveDaysPerc">@Model.Summary.LeaveDaysPercentage.ToString("0.0")</span>%)</div> </div> <div class="stats-box-bar"><div class="bar-leave" id="leaveDaysBar" style="width: @Model.Summary.LeaveDaysPercentage%;"></div></div>
+        </div>
+        <div class="stats-box">
+            <div class="stats-box-header">Attendance Costs (Total: <span id="totalCost">@Model.Summary.FormattedTotalCalculatedCost</span>)</div>
+            <div class="stats-box-item"> <div class="stats-box-label"><i class="fas fa-circle text-success mr-2"></i>Present Cost</div> <div class="stats-box-value"><span id="presentCostVal">@Model.Summary.FormattedPresentCost</span> (<span id="presentCostPerc">@Model.Summary.PresentCostPercentage.ToString("0.0")</span>%)</div> </div> <div class="stats-box-bar"><div class="bar-present" id="presentCostBar" style="width: @Model.Summary.PresentCostPercentage%;"></div></div>
+            <div class="stats-box-item mt-3"> <div class="stats-box-label"><i class="fas fa-circle text-danger mr-2"></i>Absent Cost</div> <div class="stats-box-value"><span id="absentCostVal">@Model.Summary.FormattedAbsentCost</span> (<span id="absentCostPerc">@Model.Summary.AbsentCostPercentage.ToString("0.0")</span>%)</div> </div> <div class="stats-box-bar"><div class="bar-absent" id="absentCostBar" style="width: @Model.Summary.AbsentCostPercentage%;"></div></div>
+            <div class="stats-box-item mt-3"> <div class="stats-box-label"><i class="fas fa-circle text-primary mr-2"></i>Leave Cost</div> <div class="stats-box-value"><span id="leaveCostVal">@Model.Summary.FormattedLeaveCost</span> (<span id="leaveCostPerc">@Model.Summary.LeaveCostPercentage.ToString("0.0")</span>%)</div> </div> <div class="stats-box-bar"><div class="bar-leave" id="leaveCostBar" style="width: @Model.Summary.LeaveCostPercentage%;"></div></div>
+        </div>
+    </div>
+</div>
+
 <div class="row">
-    <div class="col-md-6">
-        <div class="chart-container">
-            <div class="section-title">Cost Distribution by Department</div>
-            <canvas id="deptCostChart"></canvas>
+    <div class="col-lg-7">
+        <div class="section-card">
+            <div class="section-title">
+                <span>Cost Distribution by Main Type (U/F/P)</span>
+            </div>
+            @* Removed the chart-specific filter for now *@
+            <div class="chart-container" style="height: 395px;">
+                <canvas id="mainCostTypeChart"></canvas> @* Changed ID *@
+            </div>
         </div>
     </div>
-    <div class="col-md-6">
-        <div class="chart-container">
-            <div class="section-title">Direct vs Indirect Costs</div>
-            <canvas id="costTypeChart"></canvas>
+    <div class="col-lg-5">
+        <div class="section-card">
+            <div class="section-title">Direct vs Indirect Costs (of Present)</div>
+            <div class="chart-container" style="height: 395px;">
+                <canvas id="costTypeChart"></canvas>
+            </div>
         </div>
     </div>
 </div>
 
-<!-- Department Details -->
-<div class="table-container mb-4">
-    <div class="section-title">Department Summary</div>
-    <table id="departmentTable" class="table table-hover data-table">
-        <thead>
-            <tr>
-                <th>Department</th>
-                <th>Cost Type</th>
-                <th>Employees</th>
-                <th>Present Days</th>
-                <th>Absent Days</th>
-                <th>Total Cost</th>
-                <th>Absent Cost</th>
-                <th>% of Total</th>
-            </tr>
-        </thead>
-        <tbody id="departmentTableBody">
-            @foreach (var dept in Model.DepartmentCosts)
-            {
-                <tr>
-                    <td>@dept.Department</td>
-                    <td>
-                        <span class="badge @(dept.IsDirect ? "badge-direct" : "badge-indirect")">
-                            @dept.CostType
-                        </span>
-                    </td>
-                    <td>@dept.EmployeeCount</td>
-                    <td>@dept.PresentDays</td>
-                    <td>@dept.AbsentDays</td>
-                    <td><strong>@dept.FormattedTotalCost</strong></td>
-                    <td>@dept.FormattedAbsentCost</td>
-                    <td>
-                        <div>@dept.Percentage%</div>
-                        <div class="progress-bar-custom">
-                            <div class="progress-fill" style="width: @dept.Percentage%"></div>
-                        </div>
-                    </td>
-                </tr>
-            }
-        </tbody>
-    </table>
-</div>
-
-<!-- Employee Details -->
 <div class="table-container">
     <div class="section-title">Employee Details</div>
-    <table id="employeeTable" class="table table-hover data-table">
+    <table id="employeeTable" class="table table-hover data-table" style="width:100%">
         <thead>
             <tr>
                 <th>Employee</th>
                 <th>Department</th>
                 <th>Category</th>
+                <th>Main Type</th> @* Added Main Type column *@
                 <th>Cost Type</th>
-                <th>Attendance</th>
-                <th>Daily CTC</th>
-                <th>Total Cost</th>
-                <th>Health</th>
+                <th class="text-right">Daily CTC</th>
+                <th class="text-right">Present</th>
+                <th class="text-right">Absent</th>
+                <th class="text-right">Leave</th>
+                <th class="text-right">Present Cost</th>
+                <th class="text-right">Absent Cost</th>
+                <th class="text-right">Leave Cost</th>
             </tr>
         </thead>
-        <tbody id="employeeTableBody">
-            @foreach (var emp in Model.EmployeeCosts)
-            {
-                <tr>
-                    <td>
-                        <div><strong>@emp.EmployeeName</strong></div>
-                        <small class="text-muted">@emp.EmployeeCode</small>
-                    </td>
-                    <td>@emp.Department</td>
-                    <td>@emp.Category</td>
-                    <td>
-                        <span class="badge @(emp.IsDirect ? "badge-direct" : "badge-indirect")">
-                            @emp.CostType
-                        </span>
-                    </td>
-                    <td>
-                        <div>@emp.AttendancePercentage%</div>
-                        <small class="text-muted">P: @emp.PresentDays | A: @emp.AbsentDays</small>
-                    </td>
-                    <td>@emp.FormattedDailyCTC</td>
-                    <td><strong>@emp.FormattedTotalCost</strong></td>
-                    <td>
-                        @if (emp.AttendancePercentage >= 90)
-                        {
-                            <span class="health-indicator health-good"></span>
-                        }
-                        else if (emp.AttendancePercentage >= 75)
-                        {
-                            <span class="health-indicator health-warning"></span>
-                        }
-                        else
-                        {
-                            <span class="health-indicator health-bad"></span>
-                        }
-                    </td>
-                </tr>
-            }
-        </tbody>
+        <tbody id="employeeTableBody"></tbody>
     </table>
 </div>
 
@@ -528,280 +570,243 @@
     <script src="https://cdn.datatables.net/1.11.5/js/dataTables.bootstrap4.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.1.0"></script>
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 
     <script>
         var employeeDataTable;
-        var departmentDataTable;
-        var deptCostChart;
+        //var departmentDataTable; // Removed
+        var mainCostTypeChart; // Changed from deptCostChart
         var costTypeChart;
+        //var currentDepartmentData = []; // Removed
+
+        Chart.register(ChartDataLabels);
+        Chart.defaults.plugins.datalabels.anchor = 'center';
+        Chart.defaults.plugins.datalabels.align = 'center';
+        Chart.defaults.plugins.datalabels.color = '#fff';
+        Chart.defaults.plugins.datalabels.font = { weight: 'bold', size: 10 };
+        Chart.defaults.plugins.datalabels.textShadowColor = 'rgba(0, 0, 0, 0.6)';
+        Chart.defaults.plugins.datalabels.textShadowBlur = 2;
+        Chart.defaults.plugins.datalabels.formatter = formatChartLabel;
+
 
         $(document).ready(function() {
-            // Initialize Select2
-            $('#categorySelect').select2({
-                theme: 'bootstrap4',
-                placeholder: 'Select Categories',
-                allowClear: true,
-                closeOnSelect: false
-            });
+             // --- Initialize Select2 ---
+             $('.select2bs4').select2({ theme: 'bootstrap4', allowClear: true, closeOnSelect: false });
+             $('#categorySelect').select2({ theme: 'bootstrap4', placeholder: 'Select Categories', allowClear: true, closeOnSelect: false });
+             $('#mainCostTypeSelect').select2({ theme: 'bootstrap4', placeholder: 'ALL Main Types', allowClear: true, closeOnSelect: false }); // Updated ID and placeholder
 
-            // Initialize DataTables
             initializeDataTables();
-
-            // Initialize Charts
             initializeCharts();
 
-            // Auto-refresh handlers
+            // --- Event Handlers ---
             $('#companySelect').change(function() {
-                loadCategoriesForCompany($(this).val());
+                var companyCode = $(this).val();
+                 $('#categorySelect').val(null).trigger('change.select2');
+                 $('#mainCostTypeSelect').val(null).trigger('change.select2'); // Update ID
+                loadCategoriesForCompany(companyCode);
+                loadMainCostTypesForCompany(companyCode); // Changed function call, triggers refresh
+            });
+
+            // Refresh on change for Select2 and Date inputs
+            $('#categorySelect, #mainCostTypeSelect, #startDate, #endDate').change(function() { // Updated ID
                 refreshDashboard();
             });
 
-            $('#categorySelect, #startDate, #endDate').change(function() {
-                refreshDashboard();
-            });
+             // Removed handler for deptChartFilterSelect
+
+            // Initial data load
+             updateDashboard({
+                 summary: @Html.Raw(Json.Serialize(Model.Summary)),
+                 attendanceSummary: @Html.Raw(Json.Serialize(Model.AttendanceSummary)),
+                 mainCostTypeSummaries: @Html.Raw(Json.Serialize(Model.MainCostTypeSummaries)), // Use MainCostTypeSummaries
+                 employeeCosts: @Html.Raw(Json.Serialize(Model.EmployeeCosts))
+             });
         });
 
+        // --- DataTables Init ---
         function initializeDataTables() {
-            // Employee DataTable
-            employeeDataTable = $('#employeeTable').DataTable({
-                pageLength: 10,
-                responsive: true,
-                order: [[6, 'desc']],
-                columnDefs: [
-                    { targets: [3, 7], orderable: false },
-                    { targets: [5, 6], className: 'text-right' }
-                ],
-                language: {
-                    search: "Search:",
-                    lengthMenu: "Show _MENU_ entries",
-                    info: "Showing _START_ to _END_ of _TOTAL_ employees"
-                }
+             employeeDataTable = $('#employeeTable').DataTable({ // Added Main Type column index
+                pageLength: 10, responsive: false, scrollX: true, order: [[9, 'desc']], // Present Cost is now col 9
+                columnDefs: [ { targets: [4], orderable: false }, { targets: [5, 6, 7, 8, 9, 10, 11], className: 'text-right' } ], // CostType, DailyCTC -> Leave Cost are right aligned
+                language: { search: "_INPUT_", searchPlaceholder: "Search Employees...", lengthMenu: "Show _MENU_", info: "Showing _START_-_END_ of _TOTAL_", paginate: { previous: "<", next: ">" } }
             });
-
-            // Department DataTable
-            departmentDataTable = $('#departmentTable').DataTable({
-                pageLength: 10,
-                responsive: true,
-                order: [[5, 'desc']],
-                columnDefs: [
-                    { targets: [1, 7], orderable: false },
-                    { targets: [2, 3, 4, 5, 6], className: 'text-right' }
-                ],
-                paging: false,
-                searching: false,
-                info: false
-            });
+             // departmentDataTable initialization removed
         }
 
+        // --- Formatting Functions (unchanged) ---
+        function formatCurrency(amount) { let value=parseFloat(amount);if(isNaN(value)||value===0)return'₹0.00';var val=Math.abs(value);var formattedVal;if(val>=10000000){formattedVal=(val/10000000).toFixed(2)+' Cr';}else if(val>=100000){formattedVal=(val/100000).toFixed(2)+' L';}else{return'₹'+value.toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2});}return'₹'+(value<0?'-':'')+formattedVal;}
+        function isColorDark(hexColor) { if (!hexColor || hexColor.length < 7) return true; const r = parseInt(hexColor.substr(1, 2), 16); const g = parseInt(hexColor.substr(3, 2), 16); const b = parseInt(hexColor.substr(5, 2), 16); const brightness = (r * 299 + g * 587 + b * 114) / 1000; return brightness < 128;}
+        function formatTooltipLabel(context) { let label=context.label||'';let value=context.parsed;if(value==null)return label+': ₹0.00';if(label){label+=': ';}if(context.chart.config.type==='pie'||context.chart.config.type==='doughnut'||context.chart.config.type==='bar'){let sum=context.chart.data.datasets[0].data.reduce((a,b)=>(a||0)+(b||0),0);if(sum>0){let percentage=(value/sum*100).toFixed(1)+'%';return label+formatCurrency(value)+' ('+percentage+')';}}return label+formatCurrency(value);}
+        function formatChartLabel(context) { let value=context.raw;if(value==null||value===0)return'';let sum=0;let data=context.chart.data.datasets[0].data;data.map(d=>{if(d!=null)sum+=parseFloat(d)||0;});if(sum===0)return'';let percentage=(value*100/sum);if(percentage<3)return'';let formattedValue=formatCurrency(value);return formattedValue+'\n('+percentage.toFixed(1)+'%)';}
+
+        // --- Chart Initialization (Replaced Dept Chart with Main Type Bar Chart) ---
         function initializeCharts() {
-            // Department Cost Chart
-            var deptCtx = document.getElementById('deptCostChart').getContext('2d');
-            deptCostChart = new Chart(deptCtx, {
-                type: 'doughnut',
-                data: {
-                    labels: @Html.Raw(Json.Serialize(Model.DepartmentCosts.Select(d => d.Department))),
-                    datasets: [{
-                        data: @Html.Raw(Json.Serialize(Model.DepartmentCosts.Select(d => d.TotalCost))),
-                        backgroundColor: [
-                            '#3498db', '#2ecc71', '#f39c12', '#e74c3c', '#9b59b6',
-                            '#1abc9c', '#34495e', '#16a085', '#27ae60', '#2980b9'
-                        ]
-                    }]
-                },
+            // Main Cost Type Chart (Bar Chart)
+            var mainCtx = document.getElementById('mainCostTypeChart').getContext('2d');
+            mainCostTypeChart = new Chart(mainCtx, {
+                type: 'bar', // Changed to Bar Chart
+                data: { labels: [], datasets: [{ label: 'Present Cost', data: [], backgroundColor: ['#3498db', '#2ecc71', '#f1c40f', '#e74c3c', '#9b59b6'], borderWidth: 1 }] },
                 options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
+                    responsive: true, maintainAspectRatio: false, indexAxis: 'y', // Optional: Horizontal Bars
+                    scales: {
+                         x: { beginAtZero: true, ticks: { callback: function(value) { return formatCurrency(value); } } }, // Format X-axis ticks
+                         y: { ticks: { autoSkip: false } } // Ensure all labels show if horizontal
+                    },
                     plugins: {
-                        legend: {
-                            position: 'right',
-                            labels: {
-                                font: { size: 11 }
+                        legend: { display: false }, // Hide legend for bar chart with one dataset
+                        tooltip: { callbacks: { label: formatTooltipLabel } },
+                        datalabels: { // Configure labels for bars
+                            anchor: 'end', // Position label at the end of the bar
+                            align: 'end', // Align text to the end
+                            color: '#555', // Use a dark color for labels outside bars
+                            font: { size: 9 },
+                            textShadowColor: 'rgba(255,255,255,0.7)', // Light shadow for dark text
+                            textShadowBlur: 1,
+                            formatter: (value, context) => { // Simpler formatter for bars
+                                if (value === 0) return '';
+                                let sum = context.chart.data.datasets[0].data.reduce((a, b) => (a || 0) + (b || 0), 0);
+                                if (sum === 0) return '';
+                                let percentage = (value * 100 / sum);
+                                return formatCurrency(value) + ' (' + percentage.toFixed(1) + '%)';
                             }
                         }
                     }
                 }
             });
 
-            // Cost Type Chart
+            // Cost Type Chart (Pie - Unchanged config)
             var typeCtx = document.getElementById('costTypeChart').getContext('2d');
             costTypeChart = new Chart(typeCtx, {
-                type: 'pie',
-                data: {
-                    labels: ['Direct Cost', 'Indirect Cost'],
-                    datasets: [{
-                        data: [@Model.Summary.DirectCost, @Model.Summary.IndirectCost],
-                        backgroundColor: ['#27ae60', '#f39c12']
-                    }]
-                },
+                type: 'pie', data: { labels: ['Direct', 'Indirect'], datasets: [{ data: [0, 0], backgroundColor: ['#27ae60', '#f1c40f'], borderWidth: 1 }] },
                 options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
+                     responsive: true, maintainAspectRatio: false,
                     plugins: {
-                        legend: {
-                            position: 'bottom'
+                        legend: { position: 'right', align: 'center', labels: { boxWidth: 12, padding: 15, font: {size: 11} } },
+                        tooltip: { callbacks: { label: formatTooltipLabel } },
+                        datalabels: { // Keep previous config for pie
+                             formatter: formatChartLabel, font: { size: 11 },
+                             color: function(context) { const bg=context.dataset.backgroundColor[context.dataIndex]; return isColorDark(bg)?'#fff':'#333'; }
                         }
                     }
                 }
             });
         }
 
-        function loadCategoriesForCompany(companyCode) {
-            $.ajax({
-                url: '@Url.Action("GetCategoriesByCompany", "CostsDashboard")',
-                type: 'GET',
-                data: { companyCode: companyCode },
-                success: function(categories) {
-                    var select = $('#categorySelect');
-                    select.empty();
-                    $.each(categories, function(i, cat) {
-                        select.append(new Option(cat.text, cat.value, cat.selected, cat.selected));
-                    });
-                    select.trigger('change');
-                }
+        // --- Load functions for Select2 (Load Main Cost Types) ---
+        function loadCategoriesForCompany(companyCode) { /* ... unchanged ... */ $.ajax({ url: '@Url.Action("GetCategoriesByCompany", "CostsDashboard")',type:'GET',data:{companyCode:companyCode}, success: function(d){var s=$('#categorySelect');var v=s.val()||[];s.empty();$.each(d,function(i,o){s.append(new Option(o.text,o.value,false,v.includes(o.value)));});s.trigger('change');}, error: function(){console.error("Failed cat load.");}}); }
+
+        // Changed function name and URL
+        function loadMainCostTypesForCompany(companyCode) {
+             $.ajax({
+                url: '@Url.Action("GetMainCostTypesByCompany", "CostsDashboard")', // Changed URL
+                type: 'GET', data: { companyCode: companyCode },
+                success: function(mainTypes) {
+                     var select = $('#mainCostTypeSelect'); // Changed ID
+                     var selectedVals = select.val() || [];
+                     select.empty();
+                     $.each(mainTypes, function(i, type) {
+                         var newOption = new Option(type.text, type.value, false, selectedVals.includes(type.value));
+                         select.append(newOption);
+                     });
+                     select.trigger('change.select2'); // Use select2 event
+                     refreshDashboard(); // Refresh AFTER list is updated
+                },
+                 error: function() { console.error("Failed to load main cost types."); refreshDashboard(); }
             });
         }
 
-        function refreshDashboard() {
-            showLoading();
 
+        // --- Refresh & Update Functions ---
+        function refreshDashboard() {
+            if ($('#loadingOverlay').is(':visible')) { return; } showLoading();
+            let selectedCategories = $('#categorySelect').val() || [];
+            let selectedMainCostTypes = $('#mainCostTypeSelect').val() || []; // Changed ID
             $.ajax({
-                url: '@Url.Action("RefreshData", "CostsDashboard")',
-                type: 'POST',
-                data: {
-                    companyCode: $('#companySelect').val(),
-                    categories: $('#categorySelect').val() || [],
-                    startDate: $('#startDate').val(),
-                    endDate: $('#endDate').val()
-                },
-                success: function(response) {
-                    if (response.success) {
-                        updateDashboard(response);
-                    } else {
-                        Swal.fire('Error', response.message, 'error');
-                    }
-                    hideLoading();
-                },
-                error: function() {
-                    Swal.fire('Error', 'Failed to refresh dashboard', 'error');
-                    hideLoading();
-                }
+                url: '@Url.Action("RefreshData", "CostsDashboard")', type: 'POST',
+                data: { companyCode: $('#companySelect').val(), categories: selectedCategories, mainCostTypes: selectedMainCostTypes, startDate: $('#startDate').val(), endDate: $('#endDate').val() }, // Changed param name
+                success: function(response) { if (response.success) { updateDashboard(response); } else { Swal.fire('Error', response.message || 'Could not refresh data.', 'error'); } },
+                error: function(xhr, status, error) { console.error("Refresh Error:", status, error, xhr.responseText); Swal.fire('Error', 'Failed to refresh dashboard.', 'error'); },
+                complete: function() { hideLoading(); }
             });
         }
 
         function updateDashboard(data) {
-            // Update stats
-            $('#attendanceRate').text(data.attendanceSummary.attendancePercentage + '%');
-            $('#presentCount').text(data.attendanceSummary.presentCount);
-            $('#totalEmployees').text(data.summary.totalEmployees);
-            $('#totalCost').text(formatCurrency(data.summary.totalCost));
-            $('#averageCost').text(formatCurrency(data.summary.averageDailyCost));
-            $('#presentDays').text(data.summary.presentDays);
-            $('#absentCost').text(formatCurrency(data.summary.absentCost));
+            var summary = data.summary;
+            var attendanceSummary = data.attendanceSummary;
+            // currentDepartmentData removed
 
-            // Update tables
-            updateDepartmentTable(data.departmentCosts);
+            // Update Overall Stats (unchanged)
+            const overallAttPerc = attendanceSummary.attendancePercentage || 0;
+            $('#overallAttendanceCircle').css('--value', overallAttPerc + '%'); $('#overallAttendanceValue').text(overallAttPerc.toFixed(1) + '%');
+            $('#totalEmployees').text(summary.totalEmployees); $('#totalCostOverall').text(formatCurrency(summary.totalCalculatedCost));
+            $('#totalDaysOverall').text(summary.totalDays); $('#avgCostOverall').text(formatCurrency(summary.averageDailyCost));
+
+            // Update Breakdown Stats (unchanged)
+            $('#totalDays').text(summary.totalDays);
+            $('#presentDaysCount').text(summary.presentDays); $('#presentDaysPerc').text(summary.presentDaysPercentage.toFixed(1)); $('#presentDaysBar').css('width', summary.presentDaysPercentage + '%');
+            $('#absentDaysCount').text(summary.absentDays); $('#absentDaysPerc').text(summary.absentDaysPercentage.toFixed(1)); $('#absentDaysBar').css('width', summary.absentDaysPercentage + '%');
+            $('#leaveDaysCount').text(summary.leaveDays); $('#leaveDaysPerc').text(summary.leaveDaysPercentage.toFixed(1)); $('#leaveDaysBar').css('width', summary.leaveDaysPercentage + '%');
+            $('#totalCost').text(formatCurrency(summary.totalCalculatedCost));
+            $('#presentCostVal').text(formatCurrency(summary.presentCost)); $('#presentCostPerc').text(summary.presentCostPercentage.toFixed(1)); $('#presentCostBar').css('width', summary.presentCostPercentage + '%');
+            $('#absentCostVal').text(formatCurrency(summary.absentCost)); $('#absentCostPerc').text(summary.absentCostPercentage.toFixed(1)); $('#absentCostBar').css('width', summary.absentCostPercentage + '%');
+            $('#leaveCostVal').text(formatCurrency(summary.leaveCost)); $('#leaveCostPerc').text(summary.leaveCostPercentage.toFixed(1)); $('#leaveCostBar').css('width', summary.leaveCostPercentage + '%');
+
+            // --- Update Tables ---
+            // updateDepartmentTable removed
             updateEmployeeTable(data.employeeCosts);
 
-            // Update charts
-            updateCharts(data);
+            // --- Update Charts ---
+            updateMainCostTypeChart(data.mainCostTypeSummaries); // Updated function call
+            updateCostTypeChart(summary);
+
+            // --- Remove Department Chart Filter logic ---
+            // populateDepartmentChartFilter removed
         }
 
-        function updateDepartmentTable(depts) {
-            departmentDataTable.clear();
-            $.each(depts, function(i, dept) {
-                departmentDataTable.row.add([
-                    dept.department,
-                    '<span class="badge ' + (dept.costType === 'DIRECT' ? 'badge-direct' : 'badge-indirect') + '">' + dept.costType + '</span>',
-                    dept.employeeCount,
-                    dept.presentDays || 0,
-                    dept.absentDays || 0,
-                    '<strong>' + formatCurrency(dept.totalCost) + '</strong>',
-                    formatCurrency(dept.absentCost || 0),
-                    '<div>' + dept.percentage + '%</div><div class="progress-bar-custom"><div class="progress-fill" style="width:' + dept.percentage + '%"></div></div>'
-                ]);
-            });
-            departmentDataTable.draw();
-        }
+        // --- Table Update Functions ---
+        // updateDepartmentTable removed
 
-        function updateEmployeeTable(employees) {
+        function updateEmployeeTable(employees) { // Added MainCostType column data
             employeeDataTable.clear();
-            $.each(employees, function(i, emp) {
-                var attendance = emp.presentDays + emp.absentDays > 0
-                    ? Math.round((emp.presentDays * 100) / (emp.presentDays + emp.absentDays)) : 0;
-                var healthIndicator = attendance >= 90 ? 'health-good' : attendance >= 75 ? 'health-warning' : 'health-bad';
+             if (employees && employees.length > 0) {
+                 $.each(employees, function(i, emp) {
+                    employeeDataTable.row.add([
+                        '<div><strong>'+(emp.employeeName||'N/A')+'</strong></div><small class="text-muted">'+(emp.employeeCode||'')+'</small>',
+                        emp.department??'N/A',
+                        emp.category??'N/A',
+                        emp.mainCostType ?? 'N/A', // Display Main Cost Type
+                        '<span class="badge '+(emp.isDirect ? 'badge-direct':'badge-indirect')+'">'+(emp.costType??'INDIRECT')+'</span>',
+                        formatCurrency(emp.dailyCTC),
+                        emp.presentDays||0, emp.absentDays||0, emp.leaveDays||0,
+                        '<strong>'+formatCurrency(emp.totalCost)+'</strong>',
+                        formatCurrency(emp.absentCost||0),
+                        formatCurrency(emp.leaveCost||0)
+                    ]);
+                 });
+             }
+              employeeDataTable.columns.adjust().draw();
+         }
 
-                employeeDataTable.row.add([
-                    '<div><strong>' + emp.employeeName + '</strong></div><small class="text-muted">' + emp.employeeCode + '</small>',
-                    emp.department,
-                    emp.category,
-                    '<span class="badge ' + (emp.costType === 'DIRECT' ? 'badge-direct' : 'badge-indirect') + '">' + emp.costType + '</span>',
-                    '<div>' + attendance + '%</div><small class="text-muted">P: ' + emp.presentDays + ' | A: ' + emp.absentDays + '</small>',
-                    formatCurrency(emp.dailyCTC),
-                    '<strong>' + formatCurrency(emp.totalCost) + '</strong>',
-                    '<span class="health-indicator ' + healthIndicator + '"></span>'
-                ]);
-            });
-            employeeDataTable.draw();
-        }
+        // --- Chart Update Functions ---
+        // updateDepartmentChart removed
 
-        function updateCharts(data) {
-            // Update department chart
-            deptCostChart.data.labels = data.departmentCosts.map(d => d.department);
-            deptCostChart.data.datasets[0].data = data.departmentCosts.map(d => d.totalCost);
-            deptCostChart.update();
+        // --- NEW function to update Main Cost Type Bar Chart ---
+        function updateMainCostTypeChart(mainCostSummaries) {
+             if (mainCostTypeChart && mainCostSummaries) {
+                 mainCostTypeChart.data.labels = mainCostSummaries.map(d => d.mainCostType || 'Unknown');
+                 mainCostTypeChart.data.datasets[0].data = mainCostSummaries.map(d => d.presentCost || 0);
+                 // Optionally update colors based on labels if needed
+                 // mainCostTypeChart.data.datasets[0].backgroundColor = mainCostSummaries.map(d => d.chartColor || '#95a5a6');
+                 mainCostTypeChart.update();
+             }
+         }
 
-            // Update cost type chart
-            costTypeChart.data.datasets[0].data = [data.summary.directCost, data.summary.indirectCost];
-            costTypeChart.update();
-        }
+        function updateCostTypeChart(summary) { /* ... unchanged ... */ if(costTypeChart&&summary){costTypeChart.data.datasets[0].data=[summary.directCost||0,summary.indirectCost||0];costTypeChart.update();}}
 
-        function exportToExcel() {
-            var form = $('<form>', {
-                'method': 'POST',
-                'action': '@Url.Action("ExportToExcel", "CostsDashboard")'
-            });
-
-            form.append($('<input>', {
-                'type': 'hidden',
-                'name': 'companyCode',
-                'value': $('#companySelect').val()
-            }));
-
-            form.append($('<input>', {
-                'type': 'hidden',
-                'name': 'categoriesJson',
-                'value': JSON.stringify($('#categorySelect').val() || [])
-            }));
-
-            form.append($('<input>', {
-                'type': 'hidden',
-                'name': 'startDate',
-                'value': $('#startDate').val()
-            }));
-
-            form.append($('<input>', {
-                'type': 'hidden',
-                'name': 'endDate',
-                'value': $('#endDate').val()
-            }));
-
-            form.appendTo('body').submit().remove();
-        }
-
-        function formatCurrency(amount) {
-            return '₹' + parseFloat(amount).toLocaleString('en-IN', {
-                minimumFractionDigits: 2,
-                maximumFractionDigits: 2
-            });
-        }
-
-        function showLoading() {
-            $('#loadingOverlay').css('display', 'flex');
-        }
-
-        function hideLoading() {
-            $('#loadingOverlay').hide();
-        }
+        // --- Utility Functions (remain the same) ---
+         function exportToExcel() { showLoading(); var form=$('<form>',{'method':'POST','action':'@Url.Action("ExportToExcel", "CostsDashboard")'});form.append($('<input>',{'type':'hidden','name':'companyCode','value':$('#companySelect').val()}));form.append($('<input>',{'type':'hidden','name':'categoriesJson','value':JSON.stringify($('#categorySelect').val()||[])}));form.append($('<input>',{'type':'hidden','name':'mainCostTypesJson','value':JSON.stringify($('#mainCostTypeSelect').val()||[])})); /* Changed ID */ form.append($('<input>',{'type':'hidden','name':'startDate','value':$('#startDate').val()}));form.append($('<input>',{'type':'hidden','name':'endDate','value':$('#endDate').val()}));form.appendTo('body').submit().remove();setTimeout(hideLoading,1500);}
+         function showLoading() { $('#loadingOverlay').css('display', 'flex'); }
+         function hideLoading() { $('#loadingOverlay').hide(); }
     </script>
 }
