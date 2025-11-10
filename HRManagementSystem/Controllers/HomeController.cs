@@ -1,8 +1,10 @@
+using Dapper;
 using HRManagementSystem.Data;
 using HRManagementSystem.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Rendering;
+using Microsoft.Data.SqlClient;
 using System.Security.Claims;
 
 namespace HRManagementSystem.Controllers
@@ -13,15 +15,18 @@ namespace HRManagementSystem.Controllers
         private readonly ICompanyRepository _companyRepository;
         private readonly IAttendanceRepository _attendanceRepository;
         private readonly IAttendanceProcessorService _attendanceProcessor;
+        private readonly IConfiguration _configuration;
 
         public HomeController(
             ICompanyRepository companyRepository,
             IAttendanceRepository attendanceRepository,
-            IAttendanceProcessorService attendanceProcessor)
+            IAttendanceProcessorService attendanceProcessor,
+            IConfiguration configuration)
         {
             _companyRepository = companyRepository;
             _attendanceRepository = attendanceRepository;
             _attendanceProcessor = attendanceProcessor;
+            _configuration = configuration;
         }
 
         public async Task<IActionResult> Index()
@@ -34,8 +39,207 @@ namespace HRManagementSystem.Controllers
             ViewBag.Companies = companies;
             ViewBag.UserRole = userRole;
             ViewBag.UserCompanyCode = userCompanyCode;
+            ViewBag.IsSuperAdmin = userRole == "Admin";
 
             return View();
+        }
+
+        // Get companies from DailyAttendance table (distinct)
+        [HttpGet]
+        public async Task<IActionResult> GetCompaniesFromAttendance()
+        {
+            try
+            {
+                using var connection = new SqlConnection(_configuration.GetConnectionString("NewAttendanceConnection"));
+
+                var sql = @"
+                    SELECT DISTINCT da.CompanyCode, c.CompanyName
+                    FROM DailyAttendance da
+                    INNER JOIN Companies c ON da.CompanyCode = c.CompanyCode
+                    WHERE da.AttendanceDate = CAST(GETDATE() AS DATE)
+                    ORDER BY c.CompanyName";
+
+                var companies = await connection.QueryAsync(sql);
+                var result = companies.Select(c => new
+                {
+                    companyCode = (int)c.CompanyCode,
+                    companyName = (string)c.CompanyName
+                }).ToList();
+
+                Console.WriteLine($"GetCompaniesFromAttendance - Count: {result.Count}");
+
+                return Json(result);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error in GetCompaniesFromAttendance: {ex.Message}");
+                return Json(new List<object>());
+            }
+        }
+
+        // Get departments from DailyAttendance table (distinct)
+        [HttpGet]
+        public async Task<IActionResult> GetDepartmentsFromAttendance(int companyCode = 0)
+        {
+            try
+            {
+                using var connection = new SqlConnection(_configuration.GetConnectionString("NewAttendanceConnection"));
+
+                var sql = @"
+                    SELECT DISTINCT LTRIM(RTRIM(Department)) as Department
+                    FROM DailyAttendance
+                    WHERE Department IS NOT NULL 
+                    AND LTRIM(RTRIM(Department)) != ''
+                    AND AttendanceDate = CAST(GETDATE() AS DATE)";
+
+                // Only add company filter if a specific company is selected (not ALL)
+                if (companyCode > 0)
+                {
+                    sql += " AND CompanyCode = @CompanyCode";
+                }
+
+                sql += " ORDER BY Department";
+
+                var departments = await connection.QueryAsync<string>(sql, new { CompanyCode = companyCode });
+                var deptList = departments.ToList();
+
+                Console.WriteLine($"GetDepartmentsFromAttendance - CompanyCode: {companyCode}, Count: {deptList.Count}");
+
+                return Json(deptList);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error in GetDepartmentsFromAttendance: {ex.Message}");
+                return Json(new List<string>());
+            }
+        }
+
+        // Get categories from DailyAttendance table (distinct)
+        [HttpGet]
+        public async Task<IActionResult> GetCategoriesFromAttendance(int companyCode = 0)
+        {
+            try
+            {
+                using var connection = new SqlConnection(_configuration.GetConnectionString("NewAttendanceConnection"));
+
+                var sql = @"
+                    SELECT DISTINCT LTRIM(RTRIM(Category)) as Category
+                    FROM DailyAttendance
+                    WHERE Category IS NOT NULL 
+                    AND LTRIM(RTRIM(Category)) != ''
+                    AND AttendanceDate = CAST(GETDATE() AS DATE)";
+
+                // Only add company filter if a specific company is selected (not ALL)
+                if (companyCode > 0)
+                {
+                    sql += " AND CompanyCode = @CompanyCode";
+                }
+
+                sql += " ORDER BY Category";
+
+                var categories = await connection.QueryAsync<string>(sql, new { CompanyCode = companyCode });
+                var catList = categories.ToList();
+
+                Console.WriteLine($"GetCategoriesFromAttendance - CompanyCode: {companyCode}, Count: {catList.Count}");
+
+                return Json(catList);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error in GetCategoriesFromAttendance: {ex.Message}");
+                return Json(new List<string>());
+            }
+        }
+
+        // Get all companies attendance stats for superadmin with filters
+        [HttpGet]
+        public async Task<IActionResult> GetAllCompaniesStats(int companyCode = 0, string department = "", string category = "")
+        {
+            try
+            {
+                var userRole = User.FindFirst(ClaimTypes.Role)?.Value;
+
+                if (userRole != "Admin")
+                {
+                    return Json(new { success = false, message = "Unauthorized access" });
+                }
+
+                Console.WriteLine($"GetAllCompaniesStats - CompanyCode: {companyCode}, Department: '{department}', Category: '{category}'");
+
+                using var connection = new SqlConnection(_configuration.GetConnectionString("NewAttendanceConnection"));
+
+                // Build dynamic SQL based on filters
+                var sql = @"
+                    SELECT 
+                        c.CompanyCode,
+                        c.CompanyName,
+                        COUNT(DISTINCT da.EmployeeCode) as TotalEmployees,
+                        COUNT(DISTINCT CASE WHEN da.AttendanceStatus = 'Present' THEN da.EmployeeCode END) as PresentEmployees,
+                        COUNT(DISTINCT CASE WHEN da.AttendanceStatus = 'Absent' THEN da.EmployeeCode END) as AbsentEmployees,
+                        COUNT(DISTINCT CASE WHEN ISNULL(da.Layoff, 0) = 1 THEN da.EmployeeCode END) as LayoffEmployees,
+                        CASE 
+                            WHEN COUNT(DISTINCT da.EmployeeCode) > 0 
+                            THEN CAST(ROUND((COUNT(DISTINCT CASE WHEN da.AttendanceStatus = 'Present' THEN da.EmployeeCode END) * 100.0) / COUNT(DISTINCT da.EmployeeCode), 0) AS INT)
+                            ELSE 0 
+                        END as AttendancePercentage
+                    FROM Companies c
+                    INNER JOIN DailyAttendance da ON c.CompanyCode = da.CompanyCode
+                    WHERE da.AttendanceDate = CAST(GETDATE() AS DATE)
+                    AND ISNULL(da.LongAbsent, 0) = 0";
+
+                var parameters = new DynamicParameters();
+
+                // Add filters only if they are specified (not ALL)
+                if (companyCode > 0)
+                {
+                    sql += " AND da.CompanyCode = @CompanyCode";
+                    parameters.Add("CompanyCode", companyCode);
+                }
+
+                if (!string.IsNullOrEmpty(department))
+                {
+                    sql += " AND LTRIM(RTRIM(da.Department)) = @Department";
+                    parameters.Add("Department", department.Trim());
+                }
+
+                if (!string.IsNullOrEmpty(category))
+                {
+                    sql += " AND LTRIM(RTRIM(da.Category)) = @Category";
+                    parameters.Add("Category", category.Trim());
+                }
+
+                sql += " GROUP BY c.CompanyCode, c.CompanyName ORDER BY c.CompanyName";
+
+                Console.WriteLine($"Executing SQL with filters - Company: {companyCode}, Dept: '{department}', Cat: '{category}'");
+
+                var companies = await connection.QueryAsync(sql, parameters);
+
+                var companiesStats = companies.Select(c => new
+                {
+                    companyCode = (int)c.CompanyCode,
+                    companyName = (string)c.CompanyName,
+                    totalEmployees = (int)c.TotalEmployees,
+                    presentEmployees = (int)c.PresentEmployees,
+                    absentEmployees = (int)c.AbsentEmployees,
+                    layoffEmployees = (int)c.LayoffEmployees,
+                    attendancePercentage = (int)c.AttendancePercentage
+                }).ToList();
+
+                Console.WriteLine($"Returning {companiesStats.Count} companies");
+
+                return Json(new
+                {
+                    success = true,
+                    companies = companiesStats,
+                    lastUpdated = DateTime.Now.ToString("HH:mm:ss")
+                });
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error in GetAllCompaniesStats: {ex.Message}");
+                Console.WriteLine($"StackTrace: {ex.StackTrace}");
+                return Json(new { success = false, message = ex.Message });
+            }
         }
 
         [HttpGet]
@@ -46,7 +250,6 @@ namespace HRManagementSystem.Controllers
                 var userRole = User.FindFirst(ClaimTypes.Role)?.Value;
                 var userCompanyCode = int.TryParse(User.FindFirst("CompanyCode")?.Value, out var userComp) ? userComp : 0;
 
-                // Role-based access control
                 if (userRole != "Admin" && companyCode != userCompanyCode)
                 {
                     companyCode = userCompanyCode;
@@ -60,7 +263,7 @@ namespace HRManagementSystem.Controllers
                     presentEmployees = stats.PresentEmployees,
                     absentEmployees = stats.AbsentEmployees,
                     layoffEmployees = stats.LayoffEmployees,
-                    attendancePercentage = stats.AttendancePercentage, // NEW
+                    attendancePercentage = stats.AttendancePercentage,
                     lastUpdated = DateTime.Now.ToString("HH:mm:ss")
                 });
             }
@@ -78,7 +281,6 @@ namespace HRManagementSystem.Controllers
                 var userRole = User.FindFirst(ClaimTypes.Role)?.Value;
                 var userCompanyCode = int.TryParse(User.FindFirst("CompanyCode")?.Value, out var userComp) ? userComp : 0;
 
-                // Role-based access control
                 if (userRole != "Admin" && companyCode != userCompanyCode)
                 {
                     companyCode = userCompanyCode;
@@ -103,7 +305,6 @@ namespace HRManagementSystem.Controllers
             var userRole = User.FindFirst(ClaimTypes.Role)?.Value;
             var userCompanyCode = int.TryParse(User.FindFirst("CompanyCode")?.Value, out var userComp) ? userComp : 0;
 
-            // Role-based access control
             if (userRole != "Admin" && companyCode != userCompanyCode)
             {
                 companyCode = userCompanyCode;
@@ -112,12 +313,10 @@ namespace HRManagementSystem.Controllers
             var selectedDate = reportDate ?? DateTime.Today;
             var report = await _attendanceRepository.GetDailyAttendanceReportWithLayoffAsync(selectedDate, companyCode);
 
-            // Get companies for dropdown (based on user role)
             var roleId = GetRoleId(userRole);
             report.Companies = await _companyRepository.GetCompaniesByUserRoleAsync(roleId, userCompanyCode);
             report.SelectedCompanyCode = companyCode;
 
-            // Create SelectList for dropdown
             var companyOptions = new List<SelectListItem>
             {
                 new SelectListItem { Value = "0", Text = "All Companies" }
@@ -139,7 +338,6 @@ namespace HRManagementSystem.Controllers
             var userRole = User.FindFirst(ClaimTypes.Role)?.Value;
             var userCompanyCode = int.TryParse(User.FindFirst("CompanyCode")?.Value, out var userComp) ? userComp : 0;
 
-            // Role-based access control
             if (userRole != "Admin" && companyCode != userCompanyCode)
             {
                 companyCode = userCompanyCode;
@@ -148,13 +346,11 @@ namespace HRManagementSystem.Controllers
             var selectedDate = reportDate ?? DateTime.Today;
             var report = await _attendanceRepository.GetDepartmentAttendanceReportWithLayoffAsync(selectedDate, companyCode, department);
 
-            // Get companies for dropdown (based on user role)
             var roleId = GetRoleId(userRole);
             report.Companies = await _companyRepository.GetCompaniesByUserRoleAsync(roleId, userCompanyCode);
             report.SelectedCompanyCode = companyCode;
             report.SelectedDepartment = department;
 
-            // Create SelectList for company dropdown - only for Admin users
             var companyOptions = new List<SelectListItem>();
 
             if (userRole == "Admin")
@@ -170,7 +366,6 @@ namespace HRManagementSystem.Controllers
 
             report.CompanySelectList = new SelectList(companyOptions, "Value", "Text", companyCode.ToString());
 
-            // Create SelectList for department dropdown
             var departmentOptions = new List<SelectListItem>
             {
                 new SelectListItem { Value = "ALL", Text = "All Departments" }
@@ -184,7 +379,6 @@ namespace HRManagementSystem.Controllers
 
             report.DepartmentSelectList = new SelectList(departmentOptions, "Value", "Text", department);
 
-            // Pass user role and company info to view
             ViewBag.UserRole = userRole;
             ViewBag.UserCompanyCode = userCompanyCode;
 
