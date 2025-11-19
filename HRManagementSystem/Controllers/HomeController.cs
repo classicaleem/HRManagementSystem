@@ -44,7 +44,6 @@ namespace HRManagementSystem.Controllers
             return View();
         }
 
-        // Get companies from DailyAttendance table (distinct)
         [HttpGet]
         public async Task<IActionResult> GetCompaniesFromAttendance()
         {
@@ -77,7 +76,6 @@ namespace HRManagementSystem.Controllers
             }
         }
 
-        // Get departments from DailyAttendance table (distinct)
         [HttpGet]
         public async Task<IActionResult> GetDepartmentsFromAttendance(int companyCode = 0)
         {
@@ -92,7 +90,6 @@ namespace HRManagementSystem.Controllers
                     AND LTRIM(RTRIM(Department)) != ''
                     AND AttendanceDate = CAST(GETDATE() AS DATE)";
 
-                // Only add company filter if a specific company is selected (not ALL)
                 if (companyCode > 0)
                 {
                     sql += " AND CompanyCode = @CompanyCode";
@@ -114,7 +111,6 @@ namespace HRManagementSystem.Controllers
             }
         }
 
-        // Get categories from DailyAttendance table (distinct)
         [HttpGet]
         public async Task<IActionResult> GetCategoriesFromAttendance(int companyCode = 0)
         {
@@ -129,7 +125,6 @@ namespace HRManagementSystem.Controllers
                     AND LTRIM(RTRIM(Category)) != ''
                     AND AttendanceDate = CAST(GETDATE() AS DATE)";
 
-                // Only add company filter if a specific company is selected (not ALL)
                 if (companyCode > 0)
                 {
                     sql += " AND CompanyCode = @CompanyCode";
@@ -151,7 +146,6 @@ namespace HRManagementSystem.Controllers
             }
         }
 
-        // Get all companies attendance stats for superadmin with filters
         [HttpGet]
         public async Task<IActionResult> GetAllCompaniesStats(int companyCode = 0, string department = "", string category = "")
         {
@@ -168,18 +162,18 @@ namespace HRManagementSystem.Controllers
 
                 using var connection = new SqlConnection(_configuration.GetConnectionString("NewAttendanceConnection"));
 
-                // Build dynamic SQL based on filters
                 var sql = @"
                     SELECT 
                         c.CompanyCode,
                         c.CompanyName,
                         COUNT(DISTINCT da.EmployeeCode) as TotalEmployees,
                         COUNT(DISTINCT CASE WHEN da.AttendanceStatus = 'Present' THEN da.EmployeeCode END) as PresentEmployees,
-                        COUNT(DISTINCT CASE WHEN da.AttendanceStatus = 'Absent' THEN da.EmployeeCode END) as AbsentEmployees,
+                        COUNT(DISTINCT CASE WHEN da.AttendanceStatus = 'Absent' AND ISNULL(da.Layoff, 0) = 0 THEN da.EmployeeCode END) as AbsentEmployees,
                         COUNT(DISTINCT CASE WHEN ISNULL(da.Layoff, 0) = 1 THEN da.EmployeeCode END) as LayoffEmployees,
                         CASE 
-                            WHEN COUNT(DISTINCT da.EmployeeCode) > 0 
-                            THEN CAST(ROUND((COUNT(DISTINCT CASE WHEN da.AttendanceStatus = 'Present' THEN da.EmployeeCode END) * 100.0) / COUNT(DISTINCT da.EmployeeCode), 0) AS INT)
+                            WHEN (COUNT(DISTINCT da.EmployeeCode) - COUNT(DISTINCT CASE WHEN ISNULL(da.Layoff, 0) = 1 THEN da.EmployeeCode END)) > 0 
+                            THEN CAST(ROUND((COUNT(DISTINCT CASE WHEN da.AttendanceStatus = 'Present' THEN da.EmployeeCode END) * 100.0) / 
+                                 (COUNT(DISTINCT da.EmployeeCode) - COUNT(DISTINCT CASE WHEN ISNULL(da.Layoff, 0) = 1 THEN da.EmployeeCode END)), 0) AS INT)
                             ELSE 0 
                         END as AttendancePercentage
                     FROM Companies c
@@ -189,7 +183,6 @@ namespace HRManagementSystem.Controllers
 
                 var parameters = new DynamicParameters();
 
-                // Add filters only if they are specified (not ALL)
                 if (companyCode > 0)
                 {
                     sql += " AND da.CompanyCode = @CompanyCode";
