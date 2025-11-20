@@ -11,6 +11,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>@ViewData["Title"] - HR Management System</title>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
     <style>
         * {
             margin: 0;
@@ -20,191 +21,267 @@
 
         body {
             min-height: 100vh;
-            background: linear-gradient(-45deg, #ee7752, #e73c7e, #23a6d5, #23d5ab);
-            background-size: 400% 400%;
-            animation: gradientShift 15s ease infinite;
-            font-family: Arial, sans-serif;
+            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 50%, #7aa8d1 100%);
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             display: flex;
             align-items: center;
             justify-content: center;
             position: relative;
+            overflow: hidden;
         }
 
-        /* Animated gradient background */
-        @@keyframes gradientShift {
-            0% {
-                background-position: 0% 50%;
+            /* Subtle animated background */
+            body::before {
+                content: '';
+                position: absolute;
+                top: -50%;
+                right: -10%;
+                width: 500px;
+                height: 500px;
+                background: rgba(255, 255, 255, 0.05);
+                border-radius: 50%;
+                animation: floatCircle 15s ease-in-out infinite;
+                z-index: 0;
+            }
+
+            body::after {
+                content: '';
+                position: absolute;
+                bottom: -30%;
+                left: -5%;
+                width: 400px;
+                height: 400px;
+                background: rgba(255, 255, 255, 0.03);
+                border-radius: 50%;
+                animation: floatCircle 20s ease-in-out infinite reverse;
+                z-index: 0;
+            }
+
+        @@keyframes floatCircle {
+            0%, 100% {
+                transform: translate(0, 0);
             }
 
             50% {
-                background-position: 100% 50%;
-            }
-
-            100% {
-                background-position: 0% 50%;
+                transform: translate(30px, -30px);
             }
         }
 
-        /* Optional: Add floating bubbles for extra effect */
-        body::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background-image: radial-gradient(circle at 20% 80%, rgba(255, 255, 255, 0.1) 0%, transparent 50%), radial-gradient(circle at 80% 20%, rgba(255, 255, 255, 0.1) 0%, transparent 50%), radial-gradient(circle at 40% 40%, rgba(255, 255, 255, 0.08) 0%, transparent 50%);
-            animation: floatBubbles 20s ease-in-out infinite;
+        .container-wrapper {
+            position: relative;
+            z-index: 1;
+            width: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
         }
 
-        @@keyframes floatBubbles {
-            0%, 100% {
-                transform: translate(0, 0) rotate(0deg);
-            }
-
-            33% {
-                transform: translate(30px, -30px) rotate(120deg);
-            }
-
-            66% {
-                transform: translate(-20px, 20px) rotate(240deg);
-            }
-        }
-
-        .card {
-            background: rgba(255, 255, 255, 0.95);
-            backdrop-filter: blur(10px);
-            border: none;
+        .login-container {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 0;
+            background: white;
             border-radius: 20px;
             box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
-            animation: slideUp 0.5s ease-out;
             overflow: hidden;
+            max-width: 900px;
+            width: 95%;
+            animation: slideUp 0.6s ease-out;
+        }
+
+        .brand-section {
+            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+            padding: 60px 40px;
+            color: white;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            position: relative;
+            overflow: hidden;
+        }
+
+            .brand-section::before {
+                content: '';
+                position: absolute;
+                top: -50%;
+                right: -50%;
+                width: 400px;
+                height: 400px;
+                background: rgba(255, 255, 255, 0.1);
+                border-radius: 50%;
+            }
+
+            .brand-section::after {
+                content: '';
+                position: absolute;
+                bottom: -50%;
+                left: -50%;
+                width: 300px;
+                height: 300px;
+                background: rgba(255, 255, 255, 0.08);
+                border-radius: 50%;
+            }
+
+        .brand-content {
             position: relative;
             z-index: 1;
         }
 
-            .card::before {
-                content: '';
-                position: absolute;
-                top: 0;
-                left: 0;
-                right: 0;
-                height: 3px;
-                background: linear-gradient(90deg, #ee7752, #e73c7e, #23a6d5, #23d5ab);
-                background-size: 300% 300%;
-                animation: gradientShift 15s ease infinite;
-            }
-
-        .card-header {
-            background: transparent;
-            border: none;
-            padding-top: 40px;
-            padding-bottom: 0;
+        .brand-icon {
+            font-size: 60px;
+            margin-bottom: 20px;
+            color: #64b5f6;
         }
 
-        /* Character with eyes */
-        .character {
-            width: 120px;
-            height: 120px;
-            margin: 0 auto 20px;
-            position: relative;
+        .brand-section h2 {
+            font-size: 32px;
+            font-weight: 700;
+            margin-bottom: 15px;
+            letter-spacing: -0.5px;
         }
 
-        .face {
-            width: 100px;
-            height: 100px;
-            background: linear-gradient(135deg, #e73c7e, #23a6d5);
-            border-radius: 50%;
-            margin: 0 auto;
-            position: relative;
-            box-shadow: 0 5px 20px rgba(231, 60, 126, 0.3);
+        .brand-section p {
+            font-size: 16px;
+            color: rgba(255, 255, 255, 0.85);
+            line-height: 1.6;
+            margin-bottom: 30px;
         }
 
-        .eye {
-            width: 15px;
-            height: 15px;
-            background: white;
-            border-radius: 50%;
-            position: absolute;
-            top: 35px;
-            transition: height 0.3s ease;
+        .brand-subtitle {
+            font-size: 18px !important;
+            font-weight: 600 !important;
+            margin-bottom: 20px !important;
+            color: rgba(255, 255, 255, 0.95) !important;
         }
 
-            .eye.left {
-                left: 25px;
-            }
-
-            .eye.right {
-                right: 25px;
-            }
-
-            .eye.closed {
-                height: 2px;
-            }
-
-        /* Hands to cover eyes */
-        .hands {
-            position: absolute;
-            width: 100%;
-            height: 100%;
-            top: 0;
-            left: 10px;
+        .highlight-text {
+            color: #64b5f6;
+            font-weight: 700;
         }
 
-        .hand {
-            position: absolute;
-            width: 25px;
-            height: 25px;
-            background: linear-gradient(135deg, #e73c7e, #23a6d5);
-            border-radius: 50%;
-            top: 30px;
-            opacity: 0;
+        .brand-name {
+            color: #ff4757;
+            font-weight: 700;
+            font-size: 18px;
+        }
+
+        .brand-description {
+            font-size: 14px !important;
+            color: rgba(255, 255, 255, 0.8) !important;
+            margin-bottom: 30px !important;
+            line-height: 1.8 !important;
+        }
+
+        .analytics-features {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .feature-item {
+            display: flex;
+            gap: 15px;
+            padding: 15px;
+            background: rgba(255, 255, 255, 0.08);
+            border-radius: 12px;
+            border-left: 3px solid #64b5f6;
             transition: all 0.3s ease;
         }
 
-            .hand.left {
-                left: 15px;
+            .feature-item:hover {
+                background: rgba(255, 255, 255, 0.12);
+                transform: translateX(5px);
             }
 
-            .hand.right {
-                right: 15px;
-            }
+        .feature-icon {
+            font-size: 24px;
+            color: #64b5f6;
+            min-width: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
 
-            .hand.cover {
-                opacity: 1;
-                top: 35px;
-            }
-
-            .hand.left.cover {
-                left: 20px;
-            }
-
-            .hand.right.cover {
-                right: 20px;
-            }
-
-        h3 {
-            color: #333;
+        .feature-text h5 {
+            font-size: 14px;
             font-weight: 600;
+            color: white;
+            margin-bottom: 5px;
+        }
+
+        .feature-text p {
+            font-size: 12px;
+            color: rgba(255, 255, 255, 0.7);
+            margin: 0;
+        }
+
+        .features-list {
+            list-style: none;
+            padding: 0;
+        }
+
+            .features-list li {
+                font-size: 14px;
+                color: rgba(255, 255, 255, 0.8);
+                margin-bottom: 12px;
+                padding-left: 30px;
+                position: relative;
+            }
+
+                .features-list li::before {
+                    content: '\f058';
+                    font-family: 'Font Awesome 6 Free';
+                    font-weight: 900;
+                    position: absolute;
+                    left: 0;
+                    color: #64b5f6;
+                }
+
+        .login-form-section {
+            padding: 60px 40px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+
+            .login-form-section h3 {
+                font-size: 28px;
+                color: #1e3c72;
+                font-weight: 700;
+                margin-bottom: 10px;
+            }
+
+        .form-subtitle {
+            color: #7a8fa3;
+            font-size: 14px;
+            margin-bottom: 30px;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
         }
 
         .form-label {
-            color: #555;
+            color: #2c3e50;
             font-weight: 600;
+            font-size: 14px;
             margin-bottom: 8px;
+            display: block;
         }
 
         .form-control {
-            border: 2px solid #ddd;
-            border-radius: 8px;
-            padding: 10px 12px;
+            border: 2px solid #e0e6ed;
+            border-radius: 10px;
+            padding: 12px 16px;
             font-size: 15px;
-            transition: border-color 0.3s;
+            transition: all 0.3s ease;
+            background-color: #f8f9fc;
         }
 
             .form-control:focus {
-                border-color: #6B73FF;
-                box-shadow: 0 0 0 0.2rem rgba(107, 115, 255, 0.25);
+                border-color: #2a5298;
+                background-color: white;
+                box-shadow: 0 0 0 3px rgba(42, 82, 152, 0.1);
             }
 
         .password-container {
@@ -213,63 +290,92 @@
 
         .toggle-password {
             position: absolute;
-            right: 12px;
+            right: 16px;
             top: 50%;
             transform: translateY(-50%);
             cursor: pointer;
-            color: #6B73FF;
+            color: #2a5298;
             font-size: 18px;
             background: none;
             border: none;
             padding: 5px;
+            transition: color 0.3s ease;
         }
 
-        .btn-primary {
-            background: linear-gradient(135deg, #6B73FF, #000DFF);
+            .toggle-password:hover {
+                color: #1e3c72;
+            }
+
+        .form-check {
+            margin-bottom: 25px;
+        }
+
+        .form-check-label {
+            color: #555;
+            font-size: 14px;
+            font-weight: 500;
+            margin-left: 8px;
+        }
+
+        .form-check-input {
+            border: 2px solid #e0e6ed;
+            border-radius: 4px;
+            width: 18px;
+            height: 18px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+            .form-check-input:checked {
+                background-color: #2a5298;
+                border-color: #2a5298;
+            }
+
+        .btn-login {
+            background: linear-gradient(135deg, #2a5298 0%, #1e3c72 100%);
             border: none;
-            border-radius: 8px;
-            padding: 12px;
+            border-radius: 10px;
+            padding: 14px;
             font-size: 16px;
             font-weight: 600;
-            transition: transform 0.2s;
+            color: white;
+            width: 100%;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(42, 82, 152, 0.3);
         }
 
-            .btn-primary:hover {
-                background: linear-gradient(135deg, #5A62E5, #0009CC);
+            .btn-login:hover {
+                background: linear-gradient(135deg, #1e3c72 0%, #0d1f38 100%);
+                box-shadow: 0 6px 20px rgba(42, 82, 152, 0.4);
                 transform: translateY(-2px);
             }
 
-            .btn-primary:active {
+            .btn-login:active {
                 transform: translateY(0);
             }
 
-        .form-check-input:checked {
-            background-color: #6B73FF;
-            border-color: #6B73FF;
+        .validation-error {
+            color: #dc3545;
+            font-size: 13px;
+            margin-top: 6px;
+            display: block;
         }
 
-        .text-danger {
+        .validation-summary {
+            background-color: #f8d7da;
+            border: 1px solid #f5c6cb;
+            color: #721c24;
+            padding: 12px 16px;
+            border-radius: 8px;
+            margin-bottom: 20px;
             font-size: 14px;
-            margin-top: 5px;
-        }
-
-        /* Animation keyframes - escaped for Razor */
-        @@-webkit-keyframes slideUp {
-            from {
-                opacity: 0;
-                transform: translateY(30px);
-            }
-
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
         }
 
         @@keyframes slideUp {
             from {
                 opacity: 0;
-                transform: translateY(30px);
+                transform: translateY(40px);
             }
 
             to {
@@ -277,98 +383,131 @@
                 transform: translateY(0);
             }
         }
+
+        /* Responsive Design */
+        @@media (max-width: 768px) {
+            .login-container {
+                grid-template-columns: 1fr;
+            }
+
+            .brand-section {
+                padding: 40px 30px;
+                display: none;
+            }
+
+            .login-form-section {
+                padding: 40px 30px;
+            }
+
+            .brand-section h2 {
+                font-size: 24px;
+            }
+
+            .login-form-section h3 {
+                font-size: 24px;
+            }
+        }
     </style>
 </head>
 <body>
-    <div class="row justify-content-center w-100">
-        <div class="col-md-6 col-lg-5 col-xl-4">
-            <div class="card">
-                <div class="card-header">
-                    <!-- Animated character -->
-                    <div class="character">
-                        <div class="face">
-                            <div class="eye left" id="leftEye"></div>
-                            <div class="eye right" id="rightEye"></div>
+    <div class="container-wrapper">
+        <div class="login-container">
+            <!-- Brand Section -->
+            <div class="brand-section">
+                <div class="brand-content">
+                    <div class="brand-icon">
+                        <i class="fas fa-chart-line"></i>
+                    </div>
+                    <h2>HR Analytics Platform</h2>
+                    <p class="brand-subtitle"> <span class="brand-name">Farida Group</span></p>
+                    <p class="brand-description">Transform your workforce data into actionable insights. Real-time analytics, comprehensive reporting, and intelligent dashboards tailored for modern HR operations.</p>
+                    <div class="analytics-features">
+                        <div class="feature-item">
+                            <div class="feature-icon">
+                                <i class="fas fa-chart-bar"></i>
+                            </div>
+                            <div class="feature-text">
+                                <h5>Advanced Analytics</h5>
+                                <p>In-depth data visualization and trend analysis</p>
+                            </div>
                         </div>
-                        <div class="hands">
-                            <div class="hand left" id="leftHand"></div>
-                            <div class="hand right" id="rightHand"></div>
+                        <div class="feature-item">
+                            <div class="feature-icon">
+                                <i class="fas fa-tachometer-alt"></i>
+                            </div>
+                            <div class="feature-text">
+                                <h5>Real-time Dashboards</h5>
+                                <p>Live metrics and KPI monitoring</p>
+                            </div>
+                        </div>
+                        <div class="feature-item">
+                            <div class="feature-icon">
+                                <i class="fas fa-database"></i>
+                            </div>
+                            <div class="feature-text">
+                                <h5>Data-Driven Reports</h5>
+                                <p>Comprehensive insights at your fingertips</p>
+                            </div>
                         </div>
                     </div>
-                    <h3 class="text-center">HR Management System Login</h3>
                 </div>
-                <div class="card-body">
-                    <form asp-action="Login" method="post">
-                        <div asp-validation-summary="ModelOnly" class="text-danger"></div>
+            </div>
 
-                        <div class="form-group mb-3">
-                            <label asp-for="Username" class="form-label"></label>
-                            <input asp-for="Username" class="form-control" placeholder="Enter your username" />
-                            <span asp-validation-for="Username" class="text-danger"></span>
-                        </div>
+            <!-- Login Form Section -->
+            <div class="login-form-section">
+                <h3>Welcome Back</h3>
+                <p class="form-subtitle">Please sign in to your account</p>
 
-                        <div class="form-group mb-3">
-                            <label asp-for="Password" class="form-label"></label>
-                            <div class="password-container">
-                                <input asp-for="Password" type="password" class="form-control" placeholder="Enter your password" />
-                                <button type="button" class="toggle-password" id="togglePassword">👁️</button>
-                            </div>
-                            <span asp-validation-for="Password" class="text-danger"></span>
-                        </div>
+                <form asp-action="Login" method="post">
+                    <div asp-validation-summary="ModelOnly" class="validation-summary"></div>
 
-                        <div class="form-check mb-3">
-                            <input asp-for="RememberMe" class="form-check-input" />
-                            <label asp-for="RememberMe" class="form-check-label">Remember Me</label>
-                        </div>
+                    <div class="form-group">
+                        <label asp-for="Username" class="form-label">Username</label>
+                        <input asp-for="Username" class="form-control" placeholder="Enter your username" />
+                        <span asp-validation-for="Username" class="validation-error"></span>
+                    </div>
 
-                        <div class="d-grid">
-                            <button type="submit" class="btn btn-primary">Login</button>
+                    <div class="form-group">
+                        <label asp-for="Password" class="form-label">Password</label>
+                        <div class="password-container">
+                            <input asp-for="Password" type="password" class="form-control" placeholder="Enter your password" />
+                            <button type="button" class="toggle-password" id="togglePassword">
+                                <i class="fas fa-eye"></i>
+                            </button>
                         </div>
-                    </form>
-                </div>
+                        <span asp-validation-for="Password" class="validation-error"></span>
+                    </div>
+
+                    <div class="form-check">
+                        <input asp-for="RememberMe" class="form-check-input" id="rememberMe" />
+                        <label class="form-check-label" for="rememberMe">Remember me</label>
+                    </div>
+
+                    <button type="submit" class="btn-login">Sign In</button>
+                </form>
             </div>
         </div>
     </div>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/js/bootstrap.bundle.min.js"></script>
     <script>
-        // Get password input by its ID (ASP.NET will generate this)
         document.addEventListener('DOMContentLoaded', function() {
             const passwordInput = document.querySelector('input[type="password"]');
             const togglePassword = document.getElementById('togglePassword');
-            const leftEye = document.getElementById('leftEye');
-            const rightEye = document.getElementById('rightEye');
-            const leftHand = document.getElementById('leftHand');
-            const rightHand = document.getElementById('rightHand');
 
-            // Hide eyes when typing password
-            if (passwordInput) {
-                passwordInput.addEventListener('focus', function() {
-                    leftEye.classList.add('closed');
-                    rightEye.classList.add('closed');
-                    leftHand.classList.add('cover');
-                    rightHand.classList.add('cover');
-                });
-
-                passwordInput.addEventListener('blur', function() {
-                    leftEye.classList.remove('closed');
-                    rightEye.classList.remove('closed');
-                    leftHand.classList.remove('cover');
-                    rightHand.classList.remove('cover');
-                });
-
-                // Toggle password visibility
-                togglePassword.addEventListener('click', function() {
+            if (passwordInput && togglePassword) {
+                togglePassword.addEventListener('click', function(e) {
+                    e.preventDefault();
                     const type = passwordInput.getAttribute('type') === 'password' ? 'text' : 'password';
                     passwordInput.setAttribute('type', type);
-                    this.textContent = type === 'password' ? '👁️' : '🙈';
 
-                    // Keep eyes covered when showing password
-                    if (type === 'text') {
-                        leftEye.classList.add('closed');
-                        rightEye.classList.add('closed');
-                        leftHand.classList.add('cover');
-                        rightHand.classList.add('cover');
+                    const icon = this.querySelector('i');
+                    if (type === 'password') {
+                        icon.classList.remove('fa-eye-slash');
+                        icon.classList.add('fa-eye');
+                    } else {
+                        icon.classList.remove('fa-eye');
+                        icon.classList.add('fa-eye-slash');
                     }
                 });
             }
