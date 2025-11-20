@@ -384,6 +384,71 @@
             }
         }
 
+        /* Footer Styles */
+        .footer-section {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: rgba(30, 60, 114, 0.95);
+            backdrop-filter: blur(10px);
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+            padding: 18px 20px;
+            text-align: center;
+            z-index: 999;
+        }
+
+        .footer-content {
+            max-width: 1200px;
+            margin: 0 auto;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 30px;
+        }
+
+        .footer-brand {
+            font-size: 13px;
+            color: rgba(255, 255, 255, 0.85);
+            font-weight: 500;
+            flex: 1;
+        }
+
+            .footer-brand strong {
+                color: #64b5f6;
+                font-weight: 700;
+            }
+
+        .footer-links {
+            display: flex;
+            gap: 25px;
+            justify-content: center;
+            flex: 1;
+        }
+
+        .footer-link {
+            font-size: 12px;
+            color: rgba(255, 255, 255, 0.7);
+            text-decoration: none;
+            transition: all 0.3s ease;
+            font-weight: 500;
+        }
+
+            .footer-link:hover {
+                color: #64b5f6;
+            }
+
+        .footer-copyright {
+            font-size: 12px;
+            color: rgba(255, 255, 255, 0.6);
+            flex: 1;
+            text-align: right;
+        }
+
+        .container-wrapper {
+            padding-bottom: 80px;
+        }
+
         /* Responsive Design */
         @@media (max-width: 768px) {
             .login-container {
@@ -406,6 +471,53 @@
             .login-form-section h3 {
                 font-size: 24px;
             }
+
+            .footer-content {
+                flex-direction: column;
+                gap: 12px;
+            }
+
+            .footer-brand,
+            .footer-copyright {
+                flex: 1;
+                text-align: center;
+            }
+
+            .footer-links {
+                flex: 1;
+            }
+
+            .footer-section {
+                padding: 15px;
+            }
+
+            .container-wrapper {
+                padding-bottom: 100px;
+            }
+        }
+
+        @@media (max-width: 640px) {
+            .footer-content {
+                flex-direction: column;
+                gap: 10px;
+            }
+
+            .footer-brand {
+                font-size: 12px;
+            }
+
+            .footer-link {
+                font-size: 11px;
+                gap: 15px;
+            }
+
+            .footer-copyright {
+                font-size: 11px;
+            }
+
+            .container-wrapper {
+                padding-bottom: 120px;
+            }
         }
     </style>
 </head>
@@ -419,7 +531,7 @@
                         <i class="fas fa-chart-line"></i>
                     </div>
                     <h2>HR Analytics Platform</h2>
-                    <p class="brand-subtitle"> <span class="brand-name">Farida Group</span></p>
+                    <p class="brand-subtitle"><span class="brand-name">Farida Group</span></p>
                     <p class="brand-description">Transform your workforce data into actionable insights. Real-time analytics, comprehensive reporting, and intelligent dashboards tailored for modern HR operations.</p>
                     <div class="analytics-features">
                         <div class="feature-item">
@@ -485,6 +597,23 @@
 
                     <button type="submit" class="btn-login">Sign In</button>
                 </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Footer Section -->
+    <div class="footer-section">
+        <div class="footer-content">
+            <div class="footer-brand">
+                Developed by <strong class="brand-subtitle brand-name">Farida Classic IT Team</strong>
+            </div>
+            <div class="footer-links">
+                <a href="#" class="footer-link">Privacy Policy</a>
+                <a href="#" class="footer-link">Terms of Service</a>
+                <a href="#" class="footer-link">Support</a>
+            </div>
+            <div class="footer-copyright">
+                © 2025 Farida Group. All rights reserved.
             </div>
         </div>
     </div>
