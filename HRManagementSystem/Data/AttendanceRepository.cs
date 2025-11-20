@@ -17,142 +17,7 @@ namespace HRManagementSystem.Data
             _newAttendanceConnectionString = configuration.GetConnectionString("NewAttendanceConnection");
         }
 
-        public async Task<bool> ProcessDailyAttendanceAsyncOld(DateTime processDate)
-        {
-            try
-            {
-                using var hrConnection = new SqlConnection(_hrConnectionString);
-                using var attendanceConnection = new SqlConnection(_attendanceConnectionString);
-                using var newAttendanceConnection = new SqlConnection(_newAttendanceConnectionString);
 
-                // Get first punch of each employee for the process date
-                var firstPunchSql = @"
-            WITH FirstPunch AS (
-                SELECT Employeecode, 
-                       MIN(LogDateTime) as FirstPunchDateTime,
-                       MIN(LogTime) as FirstPunchTime
-                FROM Parellellogs 
-                WHERE LogDate = @ProcessDate 
-                GROUP BY Employeecode
-            )
-            SELECT Employeecode, FirstPunchDateTime, FirstPunchTime
-            FROM FirstPunch";
-
-                var firstPunches = await attendanceConnection.QueryAsync(firstPunchSql, new { ProcessDate = processDate.Date });
-
-                // Get all employees from HR master - INCLUDING LONGABSENT
-                var employeesSql = @"
-            SELECT CompanyCode, EmployeeCode, EmployeeName, Punchno, Dept, Desig, Category,
-                   ISNULL(MainSection, 'OTHERS') as MainSection,
-                   ISNULL(PerDayCTC, 0) as PerDayCTC,
-                   ISNULL(LongAbsent, 0) as LongAbsent
-            FROM vw_AttendanceEmployeeMaster 
-            WHERE EmployeeStatus = 'ACTIVE'";
-
-                var employees = await hrConnection.QueryAsync<Employee>(employeesSql);
-
-                // Process each employee individually with error handling
-                var processedCount = 0;
-                var errorCount = 0;
-
-                foreach (var employee in employees.GroupBy(e => new { e.CompanyCode, e.EmployeeCode }).Select(g => g.First()))
-                {
-                    try
-                    {
-                        var firstPunch = firstPunches.FirstOrDefault(fp => fp.Employeecode == employee.PunchNo);
-
-                        // Check if record already exists
-                        var existsQuery = @"
-                    SELECT COUNT(*) FROM DailyAttendance 
-                    WHERE CompanyCode = @CompanyCode 
-                      AND EmployeeCode = @EmployeeCode 
-                      AND AttendanceDate = @AttendanceDate";
-
-                        var exists = await newAttendanceConnection.QuerySingleAsync<int>(existsQuery, new
-                        {
-                            CompanyCode = employee.CompanyCode,
-                            EmployeeCode = employee.EmployeeCode,
-                            AttendanceDate = processDate.Date
-                        });
-
-                        if (exists > 0)
-                        {
-                            // Update existing record - INCLUDING LONGABSENT
-                            var updateSql = @"
-                        UPDATE DailyAttendance 
-                        SET FirstPunchTime = @FirstPunchTime, 
-                            AttendanceStatus = @AttendanceStatus, 
-                            Designation = @Designation,
-                            Category = @Category,
-                            Section = @Section,
-                            PerDayCTC = @PerDayCTC,
-                            LongAbsent = @LongAbsent,
-                            LastUpdated = @LastUpdated
-                        WHERE CompanyCode = @CompanyCode 
-                          AND EmployeeCode = @EmployeeCode 
-                          AND AttendanceDate = @AttendanceDate";
-
-                            await newAttendanceConnection.ExecuteAsync(updateSql, new
-                            {
-                                CompanyCode = employee.CompanyCode,
-                                EmployeeCode = employee.EmployeeCode,
-                                AttendanceDate = processDate.Date,
-                                FirstPunchTime = firstPunch?.FirstPunchTime,
-                                AttendanceStatus = firstPunch != null ? "Present" : "Absent",
-                                Designation = employee.Desig,
-                                Category = employee.Category,
-                                Section = employee.MainSection,
-                                PerDayCTC = employee.PerDayCTC,
-                                LongAbsent = employee.LongAbsent,
-                                LastUpdated = DateTime.Now
-                            });
-                        }
-                        else
-                        {
-                            // Insert new record - INCLUDING LONGABSENT
-                            var insertSql = @"
-                        INSERT INTO DailyAttendance (CompanyCode, EmployeeCode, PunchNo, EmployeeName, 
-                                                   Department, Designation, Category, Section, PerDayCTC, LongAbsent, AttendanceDate, FirstPunchTime, AttendanceStatus, LastUpdated)
-                        VALUES (@CompanyCode, @EmployeeCode, @PunchNo, @EmployeeName, 
-                                @Department, @Designation, @Category, @Section, @PerDayCTC, @LongAbsent, @AttendanceDate, @FirstPunchTime, @AttendanceStatus, @LastUpdated)";
-
-                            await newAttendanceConnection.ExecuteAsync(insertSql, new
-                            {
-                                CompanyCode = employee.CompanyCode,
-                                EmployeeCode = employee.EmployeeCode,
-                                PunchNo = employee.PunchNo,
-                                EmployeeName = employee.EmployeeName,
-                                Department = employee.Dept,
-                                Designation = employee.Desig,
-                                Category = employee.Category,
-                                Section = employee.MainSection,
-                                PerDayCTC = employee.PerDayCTC,
-                                LongAbsent = employee.LongAbsent,
-                                AttendanceDate = processDate.Date,
-                                FirstPunchTime = firstPunch?.FirstPunchTime,
-                                AttendanceStatus = firstPunch != null ? "Present" : "Absent",
-                                LastUpdated = DateTime.Now
-                            });
-                        }
-
-                        processedCount++;
-                    }
-                    catch (Exception ex)
-                    {
-                        Console.WriteLine($"Error processing employee {employee.EmployeeCode}: {ex.Message}");
-                        errorCount++;
-                    }
-                }
-
-                Console.WriteLine($"Processing completed: {processedCount} successful, {errorCount} errors");
-                return errorCount == 0;
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"Error processing daily attendance: {ex.Message}");
-                return false;
-            }
-        }
 
         public async Task<bool> ProcessDailyAttendanceAsync(DateTime processDate)
         {
@@ -162,22 +27,26 @@ namespace HRManagementSystem.Data
                 using var attendanceConnection = new SqlConnection(_attendanceConnectionString);
                 using var newAttendanceConnection = new SqlConnection(_newAttendanceConnectionString);
 
-                // Get first punch data
-                var firstPunchSql = @"
+                // Build dynamic table name: DeviceLogs_{Month}_{Year}
+                string tableName = $"DeviceLogs_{processDate.Month}_{processDate.Year}";
+
+                // First punch query using dynamic table
+                var firstPunchSql = $@"
             WITH FirstPunch AS (
-                SELECT Employeecode, 
-                       MIN(LogDateTime) as FirstPunchDateTime,
-                       MIN(LogTime) as FirstPunchTime
-                FROM Parellellogs 
-                WHERE LogDate = @ProcessDate 
-                GROUP BY Employeecode
+                SELECT UserId as Employeecode, 
+                       MIN(LogDate) as FirstPunchDateTime,
+                       CONVERT(VARCHAR(8), MIN(LogDate), 108) AS FirstPunchTime
+                FROM {tableName}
+                WHERE CAST(LogDate AS DATE) = @ProcessDate
+                GROUP BY UserId
             )
             SELECT Employeecode, FirstPunchDateTime, FirstPunchTime
             FROM FirstPunch";
 
-                var firstPunches = await attendanceConnection.QueryAsync(firstPunchSql, new { ProcessDate = processDate.Date });
+                var firstPunches = await attendanceConnection.QueryAsync(firstPunchSql,
+                    new { ProcessDate = processDate.Date });
 
-                // Get all employees including LAYOFF status
+                // Get employee master data
                 var employeesSql = @"
             SELECT CompanyCode, EmployeeCode, EmployeeName, Punchno, Dept, Desig, Category,
                    ISNULL(MainSection, 'OTHERS') as MainSection,
@@ -190,15 +59,19 @@ namespace HRManagementSystem.Data
 
                 var employees = await hrConnection.QueryAsync<Employee>(employeesSql);
 
-                var processedCount = 0;
-                var errorCount = 0;
+                int processedCount = 0;
+                int errorCount = 0;
 
-                foreach (var employee in employees.GroupBy(e => new { e.CompanyCode, e.EmployeeCode }).Select(g => g.First()))
+                foreach (var employee in employees
+                             .GroupBy(e => new { e.CompanyCode, e.EmployeeCode })
+                             .Select(g => g.First()))
                 {
                     try
                     {
-                        var firstPunch = firstPunches.FirstOrDefault(fp => fp.Employeecode == employee.PunchNo);
+                        var firstPunch = firstPunches
+                            .FirstOrDefault(fp => fp.Employeecode == employee.PunchNo);
 
+                        // Check if entry already exists
                         var existsQuery = @"
                     SELECT COUNT(*) FROM DailyAttendance 
                     WHERE CompanyCode = @CompanyCode 
@@ -214,6 +87,7 @@ namespace HRManagementSystem.Data
 
                         if (exists > 0)
                         {
+                            // Update existing attendance
                             var updateSql = @"
                         UPDATE DailyAttendance 
                         SET FirstPunchTime = @FirstPunchTime, 
@@ -243,12 +117,13 @@ namespace HRManagementSystem.Data
                                 PerDayCTC = employee.PerDayCTC,
                                 LongAbsent = employee.LongAbsent,
                                 Shift = employee.Shift,
-                                Layoff = employee.Layoff, // NEW
+                                Layoff = employee.Layoff,
                                 LastUpdated = DateTime.Now
                             });
                         }
                         else
                         {
+                            // Insert new attendance entry
                             var insertSql = @"
                         INSERT INTO DailyAttendance (CompanyCode, EmployeeCode, PunchNo, EmployeeName, 
                                                    Department, Designation, Category, Section, PerDayCTC, 
@@ -272,7 +147,7 @@ namespace HRManagementSystem.Data
                                 PerDayCTC = employee.PerDayCTC,
                                 LongAbsent = employee.LongAbsent,
                                 Shift = employee.Shift,
-                                Layoff = employee.Layoff, // NEW
+                                Layoff = employee.Layoff,
                                 AttendanceDate = processDate.Date,
                                 FirstPunchTime = firstPunch?.FirstPunchTime,
                                 AttendanceStatus = firstPunch != null ? "Present" : "Absent",
@@ -299,86 +174,6 @@ namespace HRManagementSystem.Data
             }
         }
 
-        public async Task<AttendanceReportViewModel> GetDailyAttendanceReportAsyncOLD(DateTime reportDate, int companyCode)
-        {
-            using var connection = new SqlConnection(_newAttendanceConnectionString);
-
-            var sql = @"
-                        WITH HierarchyAttendance AS (
-                            SELECT 
-                                COALESCE(dh.ParentDesignation, da.Department, 'Unassigned Department') as ParentDesignation,
-                                COALESCE(dh.SubDesignation, da.Designation, 'Unassigned Designation') as SubDesignation,
-                                COALESCE(da.Category, 'Unknown') as Category,
-                                da.AttendanceStatus,
-                                COUNT(*) as EmployeeCount
-                            FROM DailyAttendance da
-                            LEFT JOIN DesignationHierarchy dh ON dh.SubDesignation = da.Designation 
-                                                              AND dh.ParentDesignation = da.Department
-                                                              AND dh.IsActive = 1
-                            WHERE da.AttendanceDate = @ReportDate
-                                  AND (@CompanyCode = 0 OR da.CompanyCode = @CompanyCode)
-                                  AND ISNULL(da.LongAbsent, 0) = 0
-                            GROUP BY COALESCE(dh.ParentDesignation, da.Department, 'Unassigned Department'), 
-                                     COALESCE(dh.SubDesignation, da.Designation, 'Unassigned Designation'),
-                                     COALESCE(da.Category, 'Unknown'),
-                                     da.AttendanceStatus
-                        )
-                        SELECT 
-                            ha.ParentDesignation, 
-                            ha.SubDesignation,
-                            SUM(CASE WHEN ha.AttendanceStatus = 'Present' THEN ha.EmployeeCount ELSE 0 END) as Present,
-                            SUM(CASE WHEN ha.AttendanceStatus = 'Absent' THEN ha.EmployeeCount ELSE 0 END) as Absent,
-                            SUM(ha.EmployeeCount) as Total,
-                            -- Category breakdowns (present only)
-                            SUM(CASE WHEN ha.Category = 'Worker' AND ha.AttendanceStatus = 'Present' THEN ha.EmployeeCount ELSE 0 END) as WorkerPresent,
-                            SUM(CASE WHEN ha.Category = 'Staff' AND ha.AttendanceStatus = 'Present' THEN ha.EmployeeCount ELSE 0 END) as StaffPresent,
-                            SUM(CASE WHEN ha.Category = 'Officer' AND ha.AttendanceStatus = 'Present' THEN ha.EmployeeCount ELSE 0 END) as OfficerPresent,
-                            SUM(CASE WHEN ha.Category = 'Manager' AND ha.AttendanceStatus = 'Present' THEN ha.EmployeeCount ELSE 0 END) as ManagerPresent,
-                            SUM(CASE WHEN ha.Category = 'Executive' AND ha.AttendanceStatus = 'Present' THEN ha.EmployeeCount ELSE 0 END) as ExecutivePresent,
-                            SUM(CASE WHEN ha.Category NOT IN ('Worker', 'Staff', 'Officer', 'Manager', 'Executive') AND ha.AttendanceStatus = 'Present' THEN ha.EmployeeCount ELSE 0 END) as OtherPresent
-                        FROM HierarchyAttendance ha
-                        GROUP BY ha.ParentDesignation, ha.SubDesignation
-                        ORDER BY ha.ParentDesignation, ha.SubDesignation";
-
-            var result = await connection.QueryAsync<DailyAttendanceData>(sql, new { ReportDate = reportDate.Date, CompanyCode = companyCode });
-
-            var reportData = result.GroupBy(r => r.ParentDesignation)
-                .Select(g => new AttendanceByDesignation
-                {
-                    ParentDesignation = g.Key,
-                    SubDesignations = g.Select(s => new AttendanceBySubDesignation
-                    {
-                        SubDesignation = s.SubDesignation,
-                        Present = s.Present,
-                        Absent = s.Absent,
-                        Total = s.Total,
-                        // Keep your existing fields as they were
-                        Attacher = 0,
-                        Folder = 0,
-                        Sticher = 0,
-                        Others = s.Present,
-                        // ADD the new category fields
-                        WorkerPresent = s.WorkerPresent,
-                        StaffPresent = s.StaffPresent,
-                        OfficerPresent = s.OfficerPresent,
-                        ManagerPresent = s.ManagerPresent,
-                        ExecutivePresent = s.ExecutivePresent,
-                        OtherPresent = s.OtherPresent
-                    }).ToList(),
-                    TotalEmployees = g.Sum(s => s.Total),
-                    PresentEmployees = g.Sum(s => s.Present),
-                    AbsentEmployees = g.Sum(s => s.Absent)
-                }).ToList();
-
-            return new AttendanceReportViewModel
-            {
-                AttendanceByDesignations = reportData,
-                ReportDate = reportDate,
-                TotalEmployees = reportData.Sum(r => r.TotalEmployees),
-                PresentEmployees = reportData.Sum(r => r.PresentEmployees),
-                AbsentEmployees = reportData.Sum(r => r.AbsentEmployees)
-            };
-        }
         public async Task<AttendanceReportViewModel> GetDailyAttendanceReportAsync(DateTime reportDate, int companyCode)
         {
             using var connection = new SqlConnection(_newAttendanceConnectionString);
@@ -1390,5 +1185,151 @@ namespace HRManagementSystem.Data
                                                    department.DepartmentTotals.TotalLayoff;
         }
 
+
+
+        //public async Task<bool> ProcessDailyAttendanceAsyncTablechange(DateTime processDate)
+        //{
+        //    try
+        //    {
+        //        using var hrConnection = new SqlConnection(_hrConnectionString);
+        //        using var attendanceConnection = new SqlConnection(_attendanceConnectionString);
+        //        using var newAttendanceConnection = new SqlConnection(_newAttendanceConnectionString);
+
+        //        // Get first punch data
+        //        var firstPunchSql = @"
+        //    WITH FirstPunch AS (
+        //        SELECT Employeecode, 
+        //               MIN(LogDateTime) as FirstPunchDateTime,
+        //               MIN(LogTime) as FirstPunchTime
+        //        FROM Parellellogs 
+        //        WHERE LogDate = @ProcessDate 
+        //        GROUP BY Employeecode
+        //    )
+        //    SELECT Employeecode, FirstPunchDateTime, FirstPunchTime
+        //    FROM FirstPunch";
+
+        //        var firstPunches = await attendanceConnection.QueryAsync(firstPunchSql, new { ProcessDate = processDate.Date });
+
+        //        // Get all employees including LAYOFF status
+        //        var employeesSql = @"
+        //    SELECT CompanyCode, EmployeeCode, EmployeeName, Punchno, Dept, Desig, Category,
+        //           ISNULL(MainSection, 'OTHERS') as MainSection,
+        //           ISNULL(PerDayCTC, 0) as PerDayCTC,
+        //           ISNULL(LongAbsent, 0) as LongAbsent,
+        //           ISNULL(Shift, 'G') as Shift,
+        //           ISNULL(Layoff, 0) as Layoff
+        //    FROM vw_AttendanceEmployeeMaster 
+        //    WHERE EmployeeStatus = 'ACTIVE'";
+
+        //        var employees = await hrConnection.QueryAsync<Employee>(employeesSql);
+
+        //        var processedCount = 0;
+        //        var errorCount = 0;
+
+        //        foreach (var employee in employees.GroupBy(e => new { e.CompanyCode, e.EmployeeCode }).Select(g => g.First()))
+        //        {
+        //            try
+        //            {
+        //                var firstPunch = firstPunches.FirstOrDefault(fp => fp.Employeecode == employee.PunchNo);
+
+        //                var existsQuery = @"
+        //            SELECT COUNT(*) FROM DailyAttendance 
+        //            WHERE CompanyCode = @CompanyCode 
+        //              AND EmployeeCode = @EmployeeCode 
+        //              AND AttendanceDate = @AttendanceDate";
+
+        //                var exists = await newAttendanceConnection.QuerySingleAsync<int>(existsQuery, new
+        //                {
+        //                    CompanyCode = employee.CompanyCode,
+        //                    EmployeeCode = employee.EmployeeCode,
+        //                    AttendanceDate = processDate.Date
+        //                });
+
+        //                if (exists > 0)
+        //                {
+        //                    var updateSql = @"
+        //                UPDATE DailyAttendance 
+        //                SET FirstPunchTime = @FirstPunchTime, 
+        //                    AttendanceStatus = @AttendanceStatus, 
+        //                    Designation = @Designation,
+        //                    Category = @Category,
+        //                    Section = @Section,
+        //                    PerDayCTC = @PerDayCTC,
+        //                    LongAbsent = @LongAbsent,
+        //                    Shift = @Shift,
+        //                    Layoff = @Layoff,
+        //                    LastUpdated = @LastUpdated
+        //                WHERE CompanyCode = @CompanyCode 
+        //                  AND EmployeeCode = @EmployeeCode 
+        //                  AND AttendanceDate = @AttendanceDate";
+
+        //                    await newAttendanceConnection.ExecuteAsync(updateSql, new
+        //                    {
+        //                        CompanyCode = employee.CompanyCode,
+        //                        EmployeeCode = employee.EmployeeCode,
+        //                        AttendanceDate = processDate.Date,
+        //                        FirstPunchTime = firstPunch?.FirstPunchTime,
+        //                        AttendanceStatus = firstPunch != null ? "Present" : "Absent",
+        //                        Designation = employee.Desig,
+        //                        Category = employee.Category,
+        //                        Section = employee.MainSection,
+        //                        PerDayCTC = employee.PerDayCTC,
+        //                        LongAbsent = employee.LongAbsent,
+        //                        Shift = employee.Shift,
+        //                        Layoff = employee.Layoff, // NEW
+        //                        LastUpdated = DateTime.Now
+        //                    });
+        //                }
+        //                else
+        //                {
+        //                    var insertSql = @"
+        //                INSERT INTO DailyAttendance (CompanyCode, EmployeeCode, PunchNo, EmployeeName, 
+        //                                           Department, Designation, Category, Section, PerDayCTC, 
+        //                                           LongAbsent, Shift, Layoff, AttendanceDate, FirstPunchTime, 
+        //                                           AttendanceStatus, LastUpdated)
+        //                VALUES (@CompanyCode, @EmployeeCode, @PunchNo, @EmployeeName, 
+        //                        @Department, @Designation, @Category, @Section, @PerDayCTC, 
+        //                        @LongAbsent, @Shift, @Layoff, @AttendanceDate, @FirstPunchTime, 
+        //                        @AttendanceStatus, @LastUpdated)";
+
+        //                    await newAttendanceConnection.ExecuteAsync(insertSql, new
+        //                    {
+        //                        CompanyCode = employee.CompanyCode,
+        //                        EmployeeCode = employee.EmployeeCode,
+        //                        PunchNo = employee.PunchNo,
+        //                        EmployeeName = employee.EmployeeName,
+        //                        Department = employee.Dept,
+        //                        Designation = employee.Desig,
+        //                        Category = employee.Category,
+        //                        Section = employee.MainSection,
+        //                        PerDayCTC = employee.PerDayCTC,
+        //                        LongAbsent = employee.LongAbsent,
+        //                        Shift = employee.Shift,
+        //                        Layoff = employee.Layoff, // NEW
+        //                        AttendanceDate = processDate.Date,
+        //                        FirstPunchTime = firstPunch?.FirstPunchTime,
+        //                        AttendanceStatus = firstPunch != null ? "Present" : "Absent",
+        //                        LastUpdated = DateTime.Now
+        //                    });
+        //                }
+
+        //                processedCount++;
+        //            }
+        //            catch (Exception ex)
+        //            {
+        //                Console.WriteLine($"Error processing employee {employee.EmployeeCode}: {ex.Message}");
+        //                errorCount++;
+        //            }
+        //        }
+
+        //        Console.WriteLine($"Processing completed: {processedCount} successful, {errorCount} errors");
+        //        return errorCount == 0;
+        //    }
+        //    catch (Exception ex)
+        //    {
+        //        Console.WriteLine($"Error processing daily attendance: {ex.Message}");
+        //        return false;
+        //    }
+        //}
     }
 }

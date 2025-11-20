@@ -167,7 +167,7 @@ namespace HRManagementSystem.Controllers
                         c.CompanyCode,
                         c.CompanyName,
                         COUNT(DISTINCT da.EmployeeCode) as TotalEmployees,
-                        COUNT(DISTINCT CASE WHEN da.AttendanceStatus = 'Present' THEN da.EmployeeCode END) as PresentEmployees,
+                        COUNT(DISTINCT CASE WHEN da.AttendanceStatus = 'Present' AND ISNULL(da.Layoff, 0) = 0 THEN da.EmployeeCode END) as PresentEmployees,
                         COUNT(DISTINCT CASE WHEN da.AttendanceStatus = 'Absent' AND ISNULL(da.Layoff, 0) = 0 THEN da.EmployeeCode END) as AbsentEmployees,
                         COUNT(DISTINCT CASE WHEN ISNULL(da.Layoff, 0) = 1 THEN da.EmployeeCode END) as LayoffEmployees,
                         CASE 
