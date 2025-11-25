@@ -1,0 +1,602 @@
+﻿@{
+    ViewData["Title"] = "Statistics Report";
+    var companies = ViewBag.Companies as List<HRManagementSystem.Models.Company>;
+    var userRole = ViewBag.UserRole as string;
+    var userCompanyCode = (int)ViewBag.UserCompanyCode;
+
+    // Calculate default week dates
+    var today = DateTime.Today;
+    int diff = (7 + (today.DayOfWeek - DayOfWeek.Monday)) % 7;
+    var fromDate = today.AddDays(-diff);
+    var toDate = fromDate.AddDays(6);
+}
+
+<style>
+    .statistics-container {
+        background: linear-gradient(135deg, #1a1c2e 0%, #2d3154 100%);
+        min-height: 100vh;
+        padding: 20px;
+    }
+
+    .filter-card {
+        background: rgba(255, 255, 255, 0.95);
+        border-radius: 15px;
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+        padding: 25px;
+        margin-bottom: 25px;
+    }
+
+    .report-card {
+        background: rgba(255, 255, 255, 0.98);
+        border-radius: 15px;
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+        padding: 25px;
+    }
+
+    .page-title {
+        color: #fff;
+        font-size: 2rem;
+        font-weight: 600;
+        margin-bottom: 25px;
+    }
+
+        .page-title i {
+            margin-right: 10px;
+            color: #64b5f6;
+        }
+
+    .form-label {
+        font-weight: 600;
+        color: #2c3e50;
+        margin-bottom: 8px;
+    }
+
+    .form-control, .form-select {
+        border-radius: 8px;
+        border: 2px solid #e0e0e0;
+        padding: 10px 15px;
+    }
+
+        .form-control:focus, .form-select:focus {
+            border-color: #4472C4;
+            box-shadow: 0 0 0 0.2rem rgba(68, 114, 196, 0.25);
+        }
+
+    .btn-filter {
+        background: linear-gradient(135deg, #4472C4 0%, #2d5aa8 100%);
+        color: white;
+        border: none;
+        border-radius: 8px;
+        padding: 12px 30px;
+        font-weight: 600;
+    }
+
+        .btn-filter:hover {
+            background: linear-gradient(135deg, #2d5aa8 0%, #1e3f7a 100%);
+            color: white;
+        }
+
+    .btn-export {
+        background: linear-gradient(135deg, #28a745 0%, #1e7e34 100%);
+        color: white;
+        border: none;
+        border-radius: 8px;
+        padding: 12px 30px;
+        font-weight: 600;
+    }
+
+        .btn-export:hover {
+            background: linear-gradient(135deg, #1e7e34 0%, #155724 100%);
+            color: white;
+        }
+
+    .btn-reset {
+        background: linear-gradient(135deg, #6c757d 0%, #495057 100%);
+        color: white;
+        border: none;
+        border-radius: 8px;
+        padding: 12px 30px;
+        font-weight: 600;
+    }
+
+        .btn-reset:hover {
+            background: linear-gradient(135deg, #495057 0%, #343a40 100%);
+            color: white;
+        }
+
+    #reportTable thead th {
+        background: linear-gradient(135deg, #4472C4 0%, #2d5aa8 100%);
+        color: white;
+        font-weight: 600;
+        text-align: center;
+        padding: 15px 10px;
+        border: none;
+    }
+
+    #reportTable tbody td {
+        text-align: center;
+        padding: 12px 10px;
+        vertical-align: middle;
+    }
+
+    #reportTable tbody tr:hover {
+        background-color: rgba(68, 114, 196, 0.1);
+    }
+
+    .percentage-high {
+        color: #28a745;
+        font-weight: 600;
+    }
+
+    .percentage-medium {
+        color: #ffc107;
+        font-weight: 600;
+    }
+
+    .percentage-low {
+        color: #dc3545;
+        font-weight: 600;
+    }
+
+    .stat-badge {
+        display: inline-block;
+        padding: 4px 10px;
+        border-radius: 6px;
+        font-weight: 600;
+        font-size: 0.85rem;
+    }
+
+    .stat-badge-total {
+        background-color: #e3f2fd;
+        color: #1976d2;
+    }
+
+    .stat-badge-present {
+        background-color: #e8f5e9;
+        color: #388e3c;
+    }
+
+    .stat-badge-absent {
+        background-color: #ffebee;
+        color: #d32f2f;
+    }
+
+    .stat-badge-layoff {
+        background-color: #fff3e0;
+        color: #f57c00;
+    }
+
+    .summary-card {
+        background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+        border-radius: 12px;
+        padding: 20px;
+        margin-top: 25px;
+    }
+
+    .summary-title {
+        font-size: 1.2rem;
+        font-weight: 700;
+        color: #2c3e50;
+        margin-bottom: 15px;
+        border-bottom: 2px solid #4472C4;
+        padding-bottom: 10px;
+    }
+
+    .summary-item {
+        display: flex;
+        justify-content: space-between;
+        padding: 8px 0;
+        border-bottom: 1px dashed #dee2e6;
+    }
+
+    .summary-label {
+        font-weight: 500;
+        color: #495057;
+    }
+
+    .summary-value {
+        font-weight: 700;
+        color: #2c3e50;
+    }
+
+        .summary-value.present {
+            color: #28a745;
+        }
+
+        .summary-value.absent {
+            color: #dc3545;
+        }
+
+        .summary-value.layoff {
+            color: #ff6b6b;
+        }
+
+    .loading-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.5);
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        z-index: 9999;
+    }
+
+    .loading-spinner {
+        width: 60px;
+        height: 60px;
+        border: 5px solid #f3f3f3;
+        border-top: 5px solid #4472C4;
+        border-radius: 50%;
+        animation: spin 1s linear infinite;
+    }
+
+    @@keyframes spin {
+        0% {
+            transform: rotate(0deg);
+        }
+
+        100% {
+            transform: rotate(360deg);
+        }
+    }
+</style>
+
+<div class="statistics-container">
+    <h1 class="page-title">
+        <i class="fas fa-chart-bar"></i> Attendance Statistics Report
+    </h1>
+
+    <!-- Filter Card -->
+    <div class="filter-card">
+        <div class="row g-3">
+            <div class="col-md-2">
+                <label class="form-label">
+                    <i class="fas fa-calendar-alt text-primary me-1"></i> From Date
+                </label>
+                <input type="date" class="form-control" id="fromDate" value="@fromDate.ToString("yyyy-MM-dd")" />
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">
+                    <i class="fas fa-calendar-alt text-primary me-1"></i> To Date
+                </label>
+                <input type="date" class="form-control" id="toDate" value="@toDate.ToString("yyyy-MM-dd")" />
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">
+                    <i class="fas fa-building text-primary me-1"></i> Company
+                </label>
+                <select class="form-select" id="companyCode">
+                    @if (userRole == "Admin")
+                    {
+                        <option value="0">All Companies</option>
+                    }
+                    @if (companies != null)
+                    {
+                        foreach (var company in companies)
+                        {
+                            if (userRole == "Admin" || company.CompanyCode == userCompanyCode)
+                            {
+                                <option value="@company.CompanyCode">@company.CompanyName</option>
+                            }
+                        }
+                    }
+                </select>
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">
+                    <i class="fas fa-tags text-primary me-1"></i> Category
+                </label>
+                <select class="form-select" id="category">
+                    <option value="All">All Categories</option>
+                </select>
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">
+                    <i class="fas fa-sitemap text-primary me-1"></i> Department
+                </label>
+                <select class="form-select" id="department">
+                    <option value="All">All Departments</option>
+                </select>
+            </div>
+            <div class="col-md-2 d-flex align-items-end gap-2">
+                <button type="button" class="btn btn-filter" id="btnFilter">
+                    <i class="fas fa-search me-1"></i> Filter
+                </button>
+                <button type="button" class="btn btn-reset" id="btnReset">
+                    <i class="fas fa-undo me-1"></i>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Report Card -->
+    <div class="report-card">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h5 class="mb-0">
+                <i class="fas fa-table text-primary me-2"></i> Date-wise Statistics
+            </h5>
+            <button type="button" class="btn btn-export" id="btnExport" disabled>
+                <i class="fas fa-file-excel me-1"></i> Export to Excel
+            </button>
+        </div>
+
+        <div class="table-responsive">
+            <table id="reportTable" class="table table-striped table-bordered">
+                <thead>
+                    <tr>
+                        <th>Date</th>
+                        <th>Company</th>
+                        <th>Total Employee</th>
+                        <th>Total %</th>
+                        <th>Present</th>
+                        <th>Present %</th>
+                        <th>Absent</th>
+                        <th>Absent %</th>
+                        <th>Layoff</th>
+                        <th>Layoff %</th>
+                    </tr>
+                </thead>
+                <tbody></tbody>
+            </table>
+        </div>
+
+        <!-- Summary Section -->
+        <div class="summary-card" id="summarySection" style="display: none;">
+            <h5 class="summary-title">
+                <i class="fas fa-calculator me-2"></i> Report Summary
+            </h5>
+            <div class="row">
+                <div class="col-md-4">
+                    <div class="summary-item">
+                        <span class="summary-label">Total Days:</span>
+                        <span class="summary-value" id="summaryTotalDays">0</span>
+                    </div>
+                    <div class="summary-item">
+                        <span class="summary-label">Total Records:</span>
+                        <span class="summary-value" id="summaryTotalRecords">0</span>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="summary-item">
+                        <span class="summary-label">Total Present:</span>
+                        <span class="summary-value present" id="summaryTotalPresent">0</span>
+                    </div>
+                    <div class="summary-item">
+                        <span class="summary-label">Avg Present %:</span>
+                        <span class="summary-value present" id="summaryAvgPresent">0%</span>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="summary-item">
+                        <span class="summary-label">Total Absent:</span>
+                        <span class="summary-value absent" id="summaryTotalAbsent">0</span>
+                    </div>
+                    <div class="summary-item">
+                        <span class="summary-label">Total Layoff:</span>
+                        <span class="summary-value layoff" id="summaryTotalLayoff">0</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Loading Overlay -->
+<div class="loading-overlay" id="loadingOverlay" style="display: none;">
+    <div class="loading-spinner"></div>
+</div>
+
+@section Scripts {
+    <script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
+    <script src="https://cdn.datatables.net/1.13.6/js/dataTables.bootstrap5.min.js"></script>
+    <link rel="stylesheet" href="https://cdn.datatables.net/1.13.6/css/dataTables.bootstrap5.min.css" />
+
+    <script>
+        $(document).ready(function () {
+            var dataTable = null;
+
+            function initDataTable() {
+                if (dataTable) dataTable.destroy();
+
+                dataTable = $('#reportTable').DataTable({
+                    data: [],
+                    columns: [
+                        { data: 'formattedDate' },
+                        { data: 'companyName' },
+                        {
+                            data: 'totalEmployee',
+                            render: function (data) {
+                                return '<span class="stat-badge stat-badge-total">' + data + '</span>';
+                            }
+                        },
+                        {
+                            data: 'totalPercentage',
+                            render: function (data) { return '100%'; }
+                        },
+                        {
+                            data: 'present',
+                            render: function (data) {
+                                return '<span class="stat-badge stat-badge-present">' + data + '</span>';
+                            }
+                        },
+                        {
+                            data: 'presentPercentage',
+                            render: function (data) {
+                                var colorClass = data >= 90 ? 'percentage-high' : (data >= 80 ? 'percentage-medium' : 'percentage-low');
+                                return '<span class="' + colorClass + '">' + data.toFixed(2) + '</span>';
+                            }
+                        },
+                        {
+                            data: 'absent',
+                            render: function (data) {
+                                return '<span class="stat-badge stat-badge-absent">' + data + '</span>';
+                            }
+                        },
+                        {
+                            data: 'absentPercentage',
+                            render: function (data) {
+                                return '<span class="percentage-low">' + data.toFixed(2) + '</span>';
+                            }
+                        },
+                        {
+                            data: 'layoff',
+                            render: function (data) {
+                                return data > 0 ? '<span class="stat-badge stat-badge-layoff">' + data + '</span>' : '0';
+                            }
+                        },
+                        {
+                            data: 'layoffPercentage',
+                            render: function (data) {
+                                return data > 0 ? '<span style="color:#f57c00;font-weight:600;">' + data.toFixed(2) + '</span>' : '0.00';
+                            }
+                        }
+                    ],
+                    pageLength: 25,
+                    order: [[0, 'asc']]
+                });
+            }
+
+            function loadCategories(companyCode) {
+                $.get('/Home/GetStatisticsCategories', { companyCode: companyCode }, function (data) {
+                    var select = $('#category');
+                    select.empty().append('<option value="All">All Categories</option>');
+                    $.each(data, function (i, item) {
+                        select.append('<option value="' + item + '">' + item + '</option>');
+                    });
+                });
+            }
+
+            function loadDepartments(companyCode) {
+                $.get('/Home/GetStatisticsDepartments', { companyCode: companyCode }, function (data) {
+                    var select = $('#department');
+                    select.empty().append('<option value="All">All Departments</option>');
+                    $.each(data, function (i, item) {
+                        select.append('<option value="' + item + '">' + item + '</option>');
+                    });
+                });
+            }
+
+            function loadReportData() {
+                $('#loadingOverlay').show();
+
+                var request = {
+                    fromDate: $('#fromDate').val(),
+                    toDate: $('#toDate').val(),
+                    companyCode: parseInt($('#companyCode').val()) || 0,
+                    category: $('#category').val(),
+                    department: $('#department').val()
+                };
+
+                $.ajax({
+                    url: '/Home/GetStatisticsReportData',
+                    type: 'POST',
+                    contentType: 'application/json',
+                    data: JSON.stringify(request),
+                    success: function (response) {
+                        $('#loadingOverlay').hide();
+                        if (response.success) {
+                            dataTable.clear().rows.add(response.data).draw();
+
+                            if (response.data && response.data.length > 0) {
+                                $('#summarySection').show();
+                                $('#summaryTotalDays').text(response.summary.totalDays);
+                                $('#summaryTotalRecords').text(response.data.length);
+                                $('#summaryTotalPresent').text(response.summary.totalPresent.toLocaleString());
+                                $('#summaryTotalAbsent').text(response.summary.totalAbsent.toLocaleString());
+                                $('#summaryTotalLayoff').text(response.summary.totalLayoff.toLocaleString());
+                                $('#summaryAvgPresent').text(response.summary.averagePresentPercentage.toFixed(2) + '%');
+                                $('#btnExport').prop('disabled', false);
+                            } else {
+                                $('#summarySection').hide();
+                                $('#btnExport').prop('disabled', true);
+                            }
+                        } else {
+                            alert('Error: ' + response.message);
+                        }
+                    },
+                    error: function () {
+                        $('#loadingOverlay').hide();
+                        alert('Error loading data');
+                    }
+                });
+            }
+
+            function exportToExcel() {
+                $('#loadingOverlay').show();
+
+                var request = {
+                    fromDate: $('#fromDate').val(),
+                    toDate: $('#toDate').val(),
+                    companyCode: parseInt($('#companyCode').val()) || 0,
+                    category: $('#category').val(),
+                    department: $('#department').val()
+                };
+
+                $.ajax({
+                    url: '/Home/ExportStatisticsReport',
+                    type: 'POST',
+                    contentType: 'application/json',
+                    data: JSON.stringify(request),
+                    xhrFields: { responseType: 'blob' },
+                    success: function (data, status, xhr) {
+                        $('#loadingOverlay').hide();
+                        var filename = 'StatisticsReport.xlsx';
+                        var disposition = xhr.getResponseHeader('content-disposition');
+                        if (disposition) {
+                            var match = disposition.match(/filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/);
+                            if (match) filename = match[1].replace(/['"]/g, '');
+                        }
+                        var blob = new Blob([data], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+                        var link = document.createElement('a');
+                        link.href = window.URL.createObjectURL(blob);
+                        link.download = filename;
+                        link.click();
+                    },
+                    error: function () {
+                        $('#loadingOverlay').hide();
+                        alert('Error exporting report');
+                    }
+                });
+            }
+
+            // Event handlers
+            $('#companyCode').change(function () {
+                loadCategories($(this).val());
+                loadDepartments($(this).val());
+            });
+
+            $('#btnFilter').click(loadReportData);
+            $('#btnExport').click(exportToExcel);
+
+            $('#btnReset').click(function () {
+                var today = new Date();
+                var dayOfWeek = today.getDay();
+                var monday = new Date(today);
+                monday.setDate(today.getDate() - (dayOfWeek === 0 ? 6 : dayOfWeek - 1));
+                var sunday = new Date(monday);
+                sunday.setDate(monday.getDate() + 6);
+
+                $('#fromDate').val(monday.toISOString().split('T')[0]);
+                $('#toDate').val(sunday.toISOString().split('T')[0]);
+                $('#companyCode').val($('#companyCode option:first').val());
+                $('#category').val('All');
+                $('#department').val('All');
+
+                loadCategories($('#companyCode').val());
+                loadDepartments($('#companyCode').val());
+                dataTable.clear().draw();
+                $('#summarySection').hide();
+                $('#btnExport').prop('disabled', true);
+            });
+
+            // Initialize
+            initDataTable();
+            loadCategories($('#companyCode').val());
+            loadDepartments($('#companyCode').val());
+            loadReportData();
+        });
+    </script>
+}
