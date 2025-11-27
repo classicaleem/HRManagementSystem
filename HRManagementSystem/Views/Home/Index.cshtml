@@ -34,7 +34,7 @@
 
     .filter-grid {
         display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
         gap: 15px;
         align-items: end;
     }
@@ -766,20 +766,34 @@
                 </div>
                 <div class="filter-grid">
                     <div class="filter-group">
-                        <label class="filter-label">Company</label>
+                        <label class="filter-label">
+                            <i class="fas fa-building"></i> Company
+                        </label>
                         <select id="companyFilter" class="filter-select" onchange="onFilterChange()">
                             <option value="0">ALL</option>
                         </select>
                     </div>
                     <div class="filter-group">
-                        <label class="filter-label">Department</label>
+                        <label class="filter-label">
+                            <i class="fas fa-sitemap"></i> Department
+                        </label>
                         <select id="departmentFilter" class="filter-select" onchange="onFilterChange()">
                             <option value="">ALL</option>
                         </select>
                     </div>
                     <div class="filter-group">
-                        <label class="filter-label">Category</label>
+                        <label class="filter-label">
+                            <i class="fas fa-tags"></i> Category
+                        </label>
                         <select id="categoryFilter" class="filter-select" onchange="onFilterChange()">
+                            <option value="">ALL</option>
+                        </select>
+                    </div>
+                    <div class="filter-group">
+                        <label class="filter-label">
+                            <i class="fas fa-clock"></i> Shift
+                        </label>
+                        <select id="shiftFilter" class="filter-select" onchange="onFilterChange()">
                             <option value="">ALL</option>
                         </select>
                     </div>
@@ -1027,7 +1041,8 @@
     var currentFilters = {
         companyCode: 0,
         department: '',
-        category: ''
+        category: '',
+        shift: ''
     };
 
     // Helper function to get company badge class
@@ -1052,7 +1067,7 @@
                 if (!response.ok) {
                     throw new Error(`HTTP error! status: ${response.status}`);
                 }
-                return response.text(); // Get as text first to see raw response
+                return response.text();
             })
             .then(text => {
                 console.log('Companies raw response:', text);
@@ -1095,6 +1110,10 @@
         // Load categories
         console.log('Loading categories...');
         loadCategories(0);
+
+        // Load shifts
+        console.log('Loading shifts...');
+        loadShifts(0);
     }
 
     // Load departments based on company from DailyAttendance
@@ -1205,23 +1224,80 @@
             });
     }
 
+    // Load shifts based on company from DailyAttendance
+    function loadShifts(companyCode) {
+        console.log('=== loadShifts called with companyCode:', companyCode);
+
+        const url = `/Home/GetShiftsFromAttendance?companyCode=${companyCode}`;
+        console.log('Fetching shifts from:', url);
+
+        fetch(url)
+            .then(response => {
+                console.log('Shifts response status:', response.status);
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                return response.text();
+            })
+            .then(text => {
+                console.log('Shifts raw response:', text);
+                try {
+                    const data = JSON.parse(text);
+                    console.log('Shifts parsed data:', data);
+                    console.log('Is array?', Array.isArray(data));
+                    console.log('Data length:', data ? data.length : 'null');
+
+                    const shiftSelect = document.getElementById('shiftFilter');
+                    if (!shiftSelect) {
+                        console.error('ERROR: shiftFilter element not found in DOM!');
+                        return;
+                    }
+
+                    if (Array.isArray(data)) {
+                        shiftSelect.innerHTML = '<option value="">ALL</option>';
+                        if (data.length > 0) {
+                            data.forEach((shift, index) => {
+                                console.log(`Adding shift ${index}:`, shift);
+                                shiftSelect.innerHTML += `<option value="${shift.shiftCode}">${shift.shiftName}</option>`;
+                            });
+                            console.log('✓ Shifts loaded successfully:', data.length);
+                        } else {
+                            console.warn('WARNING: No shifts returned from server');
+                        }
+                    } else {
+                        console.error('ERROR: Shifts data is not an array:', data);
+                    }
+                } catch (parseError) {
+                    console.error('ERROR parsing shifts JSON:', parseError);
+                    console.error('Raw text was:', text);
+                }
+            })
+            .catch(error => {
+                console.error('ERROR loading shifts:', error);
+                console.error('Error stack:', error.stack);
+            });
+    }
+
     // Handle filter change - auto reload data
     function onFilterChange() {
         const companyCode = parseInt(document.getElementById('companyFilter').value);
         const department = document.getElementById('departmentFilter').value;
         const category = document.getElementById('categoryFilter').value;
+        const shift = document.getElementById('shiftFilter').value;
 
-        console.log('Filter changed:', { companyCode, department, category });
+        console.log('Filter changed:', { companyCode, department, category, shift });
 
         // Update current filters
         currentFilters.companyCode = companyCode;
         currentFilters.department = department;
         currentFilters.category = category;
+        currentFilters.shift = shift;
 
         // Reload dependent dropdowns when company changes
         if (event.target.id === 'companyFilter') {
             loadDepartments(companyCode);
             loadCategories(companyCode);
+            loadShifts(companyCode);
         }
 
         // Auto-reload data
@@ -1240,16 +1316,19 @@
         document.getElementById('companyFilter').value = '0';
         document.getElementById('departmentFilter').value = '';
         document.getElementById('categoryFilter').value = '';
+        document.getElementById('shiftFilter').value = '';
 
         currentFilters = {
             companyCode: 0,
             department: '',
-            category: ''
+            category: '',
+            shift: ''
         };
 
         // Reload all dropdowns
         loadDepartments(0);
         loadCategories(0);
+        loadShifts(0);
 
         // Reload data
         loadAllCompaniesData();
@@ -1257,7 +1336,7 @@
 
     // Create circular progress SVG for a stat - COMPACT VERSION
     function createCircleProgress(stat, value, count, className) {
-        const circumference = 2 * Math.PI * 32; // smaller radius = 32
+        const circumference = 2 * Math.PI * 32;
         const dashArray = stat === 'Total' ? circumference : (value / 100) * circumference;
 
         return `
@@ -1347,7 +1426,8 @@
         const params = new URLSearchParams({
             companyCode: currentFilters.companyCode,
             department: currentFilters.department || '',
-            category: currentFilters.category || ''
+            category: currentFilters.category || '',
+            shift: currentFilters.shift || ''
         });
 
         console.log('Loading companies with filters:', currentFilters);
@@ -1406,7 +1486,7 @@
             });
     }
 
-    // Update stats for regular users (existing function)
+    // Update stats for regular users
     function updateMainStats(data) {
         const total = data.totalEmployees;
         const present = data.presentEmployees;
@@ -1430,7 +1510,7 @@
             `<i class="fas fa-check-circle"></i> Updated: ${data.lastUpdated}`;
     }
 
-    // Update shift stats (existing function)
+    // Update shift stats
     function updateShiftStats(shifts) {
         const grid = document.getElementById('shiftGrid');
         const shiftClasses = {

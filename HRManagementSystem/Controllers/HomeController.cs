@@ -149,7 +149,53 @@ namespace HRManagementSystem.Controllers
         }
 
         [HttpGet]
-        public async Task<IActionResult> GetAllCompaniesStats(int companyCode = 0, string department = "", string category = "")
+        public async Task<IActionResult> GetShiftsFromAttendance(int companyCode = 0)
+        {
+            try
+            {
+                using var connection = new SqlConnection(_configuration.GetConnectionString("NewAttendanceConnection"));
+
+                var sql = @"
+                    SELECT DISTINCT 
+                        da.Shift,
+                        CASE 
+                            WHEN da.Shift = 'F' THEN 'First Shift'
+                            WHEN da.Shift = 'G' THEN 'General Shift'
+                            WHEN da.Shift = 'S' THEN 'Second Shift'
+                            ELSE da.Shift
+                        END as ShiftName
+                    FROM DailyAttendance da
+                    WHERE da.Shift IS NOT NULL 
+                    AND LTRIM(RTRIM(da.Shift)) != ''
+                    AND da.AttendanceDate = CAST(GETDATE() AS DATE)";
+
+                if (companyCode > 0)
+                {
+                    sql += " AND da.CompanyCode = @CompanyCode";
+                }
+
+                sql += " ORDER BY da.Shift";
+
+                var shifts = await connection.QueryAsync(sql, new { CompanyCode = companyCode });
+                var shiftList = shifts.Select(s => new
+                {
+                    shiftCode = (string)s.Shift,
+                    shiftName = (string)s.ShiftName
+                }).ToList();
+
+                Console.WriteLine($"GetShiftsFromAttendance - CompanyCode: {companyCode}, Count: {shiftList.Count}");
+
+                return Json(shiftList);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error in GetShiftsFromAttendance: {ex.Message}");
+                return Json(new List<object>());
+            }
+        }
+
+        [HttpGet]
+        public async Task<IActionResult> GetAllCompaniesStats(int companyCode = 0, string department = "", string category = "", string shift = "")
         {
             try
             {
@@ -160,7 +206,7 @@ namespace HRManagementSystem.Controllers
                     return Json(new { success = false, message = "Unauthorized access" });
                 }
 
-                Console.WriteLine($"GetAllCompaniesStats - CompanyCode: {companyCode}, Department: '{department}', Category: '{category}'");
+                Console.WriteLine($"GetAllCompaniesStats - CompanyCode: {companyCode}, Department: '{department}', Category: '{category}', Shift: '{shift}'");
 
                 using var connection = new SqlConnection(_configuration.GetConnectionString("NewAttendanceConnection"));
 
@@ -203,9 +249,15 @@ namespace HRManagementSystem.Controllers
                     parameters.Add("Category", category.Trim());
                 }
 
+                if (!string.IsNullOrEmpty(shift))
+                {
+                    sql += " AND LTRIM(RTRIM(da.Shift)) = @Shift";
+                    parameters.Add("Shift", shift.Trim());
+                }
+
                 sql += " GROUP BY c.CompanyCode, c.CompanyName ORDER BY c.CompanyName";
 
-                Console.WriteLine($"Executing SQL with filters - Company: {companyCode}, Dept: '{department}', Cat: '{category}'");
+                Console.WriteLine($"Executing SQL with filters - Company: {companyCode}, Dept: '{department}', Cat: '{category}', Shift: '{shift}'");
 
                 var companies = await connection.QueryAsync(sql, parameters);
 
@@ -407,7 +459,7 @@ namespace HRManagementSystem.Controllers
         }
 
 
-        #region  'Statics Report
+        #region  'Statistics Report
 
         public async Task<IActionResult> StatisticsReportold()
         {
