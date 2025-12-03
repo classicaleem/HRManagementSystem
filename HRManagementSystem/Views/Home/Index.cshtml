@@ -391,7 +391,7 @@
 
     .stats-grid {
         display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        grid-template-columns: repeat(auto-fit, minmin(200px, 1fr));
         gap: 30px;
         margin-top: 30px;
     }
@@ -769,7 +769,7 @@
                         <label class="filter-label">
                             <i class="fas fa-building"></i> Company
                         </label>
-                        <select id="companyFilter" class="filter-select" onchange="onFilterChange()">
+                        <select id="companyFilter" class="filter-select">
                             <option value="0">ALL</option>
                         </select>
                     </div>
@@ -777,7 +777,7 @@
                         <label class="filter-label">
                             <i class="fas fa-sitemap"></i> Department
                         </label>
-                        <select id="departmentFilter" class="filter-select" onchange="onFilterChange()">
+                        <select id="departmentFilter" class="filter-select">
                             <option value="">ALL</option>
                         </select>
                     </div>
@@ -785,15 +785,15 @@
                         <label class="filter-label">
                             <i class="fas fa-tags"></i> Category
                         </label>
-                        <select id="categoryFilter" class="filter-select" onchange="onFilterChange()">
+                        <select id="categoryFilter" class="filter-select">
                             <option value="">ALL</option>
                         </select>
                     </div>
-               @*      <div class="filter-group">
+                    @*      <div class="filter-group">
                         <label class="filter-label">
                             <i class="fas fa-clock"></i> Shift
                         </label>
-                        <select id="shiftFilter" class="filter-select" onchange="onFilterChange()">
+                        <select id="shiftFilter" class="filter-select">
                             <option value="">ALL</option>
                         </select>
                     </div> *@
@@ -1045,6 +1045,9 @@
         shift: ''
     };
 
+    // Flag to prevent concurrent filter loads
+    let isLoadingFilters = false;
+
     // Helper function to get company badge class
     function getCompanyBadgeClass(companyName) {
         const name = companyName.toLowerCase();
@@ -1057,6 +1060,13 @@
     // Load filter options for super admin
     function loadFilterOptions() {
         console.log('=== STARTING loadFilterOptions ===');
+
+        if (isLoadingFilters) {
+            console.log('Already loading filters, skipping...');
+            return;
+        }
+
+        isLoadingFilters = true;
 
         // Load companies from DailyAttendance
         console.log('Fetching companies from: /Home/GetCompaniesFromAttendance');
@@ -1101,6 +1111,9 @@
             .catch(error => {
                 console.error('ERROR loading companies:', error);
                 console.error('Error stack:', error.stack);
+            })
+            .finally(() => {
+                isLoadingFilters = false;
             });
 
         // Load departments
@@ -1279,33 +1292,47 @@
     }
 
     // Handle filter change - auto reload data
-    function onFilterChange() {
+    function onFilterChange(event) {
+        console.log('=== onFilterChange TRIGGERED ===');
+        console.log('Event:', event);
+        console.log('Event target:', event ? event.target : 'no event');
+
         const companyCode = parseInt(document.getElementById('companyFilter').value);
         const department = document.getElementById('departmentFilter').value;
         const category = document.getElementById('categoryFilter').value;
-        const shift = document.getElementById('shiftFilter').value;
+        // const shift = document.getElementById('shiftFilter').value;
 
-        console.log('Filter changed:', { companyCode, department, category, shift });
+        console.log('Filter values retrieved:', {
+            companyCode,
+            department,
+            category
+            // shift
+        });
 
         // Update current filters
         currentFilters.companyCode = companyCode;
         currentFilters.department = department;
         currentFilters.category = category;
-        currentFilters.shift = shift;
+        // currentFilters.shift = shift;
+
+        console.log('Updated currentFilters:', currentFilters);
 
         // Reload dependent dropdowns when company changes
-        if (event.target.id === 'companyFilter') {
+        if (event && event.target && event.target.id === 'companyFilter') {
+            console.log('Company filter changed - reloading dependent dropdowns');
             loadDepartments(companyCode);
             loadCategories(companyCode);
             loadShifts(companyCode);
         }
 
         // Auto-reload data
+        console.log('Calling loadAllCompaniesData()...');
         loadAllCompaniesData();
     }
 
     // Apply filters (kept for compatibility but now just calls onFilterChange)
     function applyFilters() {
+        console.log('applyFilters() called - redirecting to onFilterChange()');
         onFilterChange();
     }
 
@@ -1316,13 +1343,13 @@
         document.getElementById('companyFilter').value = '0';
         document.getElementById('departmentFilter').value = '';
         document.getElementById('categoryFilter').value = '';
-        document.getElementById('shiftFilter').value = '';
+        // document.getElementById('shiftFilter').value = '';
 
         currentFilters = {
             companyCode: 0,
             department: '',
-            category: '',
-            shift: ''
+            category: ''
+            // shift: ''
         };
 
         // Reload all dropdowns
@@ -1423,22 +1450,29 @@
 
     // Load all companies data for superadmin with filters
     function loadAllCompaniesData() {
+        console.log('=== loadAllCompaniesData CALLED ===');
+        console.log('Current filters:', currentFilters);
+
         const params = new URLSearchParams({
             companyCode: currentFilters.companyCode,
             department: currentFilters.department || '',
-            category: currentFilters.category || '',
-            shift: currentFilters.shift || ''
+            category: currentFilters.category || ''
+            // shift: currentFilters.shift || ''
         });
 
-        console.log('Loading companies with filters:', currentFilters);
+        const url = '/Home/GetAllCompaniesStats?' + params.toString();
+        console.log('Fetching from URL:', url);
 
-        fetch('/Home/GetAllCompaniesStats?' + params.toString())
+        fetch(url)
             .then(response => {
                 console.log('GetAllCompaniesStats response status:', response.status);
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
                 return response.json();
             })
             .then(data => {
-                console.log('GetAllCompaniesStats data:', data);
+                console.log('GetAllCompaniesStats data received:', data);
 
                 if (data.success && data.companies) {
                     const container = document.getElementById('companiesContainer');
@@ -1460,9 +1494,10 @@
                     let filteredCompanies = data.companies;
                     if (currentFilters.companyCode > 0) {
                         filteredCompanies = data.companies.filter(c => c.companyCode === currentFilters.companyCode);
+                        console.log('Filtered to specific company:', currentFilters.companyCode);
                     }
 
-                    console.log('Filtered companies count:', filteredCompanies.length);
+                    console.log('Total companies to display:', filteredCompanies.length);
 
                     filteredCompanies.forEach(company => {
                         html += updateCompanyContainer(company);
@@ -1472,12 +1507,20 @@
 
                     // Update summary with filtered data
                     updateSummary(filteredCompanies);
+
+                    console.log('✓ Companies data loaded and rendered successfully');
                 } else {
                     console.error('Invalid response from GetAllCompaniesStats:', data);
+                    document.getElementById('companiesContainer').innerHTML = `
+                        <div class="alert alert-warning" style="grid-column: 1 / -1;">
+                            <i class="fas fa-exclamation-triangle"></i> Invalid response format from server
+                        </div>
+                    `;
                 }
             })
             .catch(error => {
-                console.error('Error loading companies data:', error);
+                console.error('ERROR loading companies data:', error);
+                console.error('Error stack:', error.stack);
                 document.getElementById('companiesContainer').innerHTML = `
                     <div class="alert alert-danger" style="grid-column: 1 / -1;">
                         <i class="fas fa-exclamation-triangle"></i> Error loading company data: ${error.message}
@@ -1669,16 +1712,63 @@
 
     // Initialize on page load
     document.addEventListener('DOMContentLoaded', function() {
+        console.log('=== PAGE LOADED - DOMContentLoaded ===');
+        console.log('isSuperAdmin:', isSuperAdmin);
+        console.log('userRole:', userRole);
+
         if (isSuperAdmin) {
+            console.log('Initializing Super Admin view...');
+
             // Load filter options and data for superadmin
             loadFilterOptions();
             loadAllCompaniesData();
 
+            // Attach event listeners to filter dropdowns
+            console.log('Attaching event listeners to filters...');
+
+            const companyFilter = document.getElementById('companyFilter');
+            const departmentFilter = document.getElementById('departmentFilter');
+            const categoryFilter = document.getElementById('categoryFilter');
+            // const shiftFilter = document.getElementById('shiftFilter');
+
+            if (companyFilter) {
+                companyFilter.addEventListener('change', onFilterChange);
+                console.log('✓ Company filter listener attached');
+            } else {
+                console.error('✗ companyFilter element not found!');
+            }
+
+            if (departmentFilter) {
+                departmentFilter.addEventListener('change', onFilterChange);
+                console.log('✓ Department filter listener attached');
+            } else {
+                console.error('✗ departmentFilter element not found!');
+            }
+
+            if (categoryFilter) {
+                categoryFilter.addEventListener('change', onFilterChange);
+                console.log('✓ Category filter listener attached');
+            } else {
+                console.error('✗ categoryFilter element not found!');
+            }
+
+            // if (shiftFilter) {
+            //     shiftFilter.addEventListener('change', onFilterChange);
+            //     console.log('✓ Shift filter listener attached');
+            // } else {
+            //     console.error('✗ shiftFilter element not found!');
+            // }
+
             // Auto-refresh every 3 minutes for superadmin
             refreshInterval = setInterval(function() {
+                console.log('Auto-refresh triggered (30 seconds)');
                 loadAllCompaniesData();
-            }, 180000);
+            }, 30000);
+
+            console.log('✓ Auto-refresh interval set (30 seconds)');
         } else {
+            console.log('Initializing Regular User view...');
+
             // Load single company data for regular users
             loadRealTimeStats();
             loadShiftStats();
@@ -1687,7 +1777,7 @@
             refreshInterval = setInterval(function() {
                 loadRealTimeStats();
                 loadShiftStats();
-            }, 180000);
+            }, 30000);
         }
     });
 
