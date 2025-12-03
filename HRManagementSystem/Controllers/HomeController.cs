@@ -458,39 +458,7 @@ namespace HRManagementSystem.Controllers
             };
         }
 
-
-        #region  'Statistics Report
-
-        public async Task<IActionResult> StatisticsReportold()
-        {
-            var userRole = User.FindFirst(ClaimTypes.Role)?.Value;
-            var userCompanyCode = int.TryParse(User.FindFirst("CompanyCode")?.Value, out var companyCode) ? companyCode : 0;
-
-            var model = new StatisticsReportViewModel();
-
-            // Get companies based on role
-            var companies = await _companyRepository.GetCompaniesByUserRoleAsync(GetRoleId(userRole), userCompanyCode);
-
-            // Prepare company dropdown with "All" option for Admin
-            var companyList = new List<SelectListItem>();
-            if (userRole == "Admin")
-            {
-                companyList.Add(new SelectListItem { Value = "0", Text = "All Companies" });
-            }
-            companyList.AddRange(companies.Select(c => new SelectListItem
-            {
-                Value = c.CompanyCode.ToString(),
-                Text = c.CompanyName
-            }));
-
-            model.Companies = new SelectList(companyList, "Value", "Text");
-            model.SelectedCompanyCode = userRole == "Admin" ? 0 : userCompanyCode;
-
-            ViewBag.UserRole = userRole;
-            ViewBag.UserCompanyCode = userCompanyCode;
-
-            return View(model);
-        }
+        #region 'Statistics Report'
 
         public async Task<IActionResult> StatisticsReport()
         {
@@ -505,6 +473,7 @@ namespace HRManagementSystem.Controllers
 
             return View();
         }
+
         [HttpPost]
         public async Task<IActionResult> GetStatisticsReportData([FromBody] StatisticsReportRequest request)
         {
@@ -520,41 +489,74 @@ namespace HRManagementSystem.Controllers
 
                 using var connection = new SqlConnection(_configuration.GetConnectionString("NewAttendanceConnection"));
 
+                // CORRECTED LOGIC:
+                // Present = AttendanceStatus='Present' AND Layoff=0
+                // Absent = AttendanceStatus='Absent' AND Layoff=0
+                // Layoff = Layoff=1 (regardless of AttendanceStatus)
+                // ALL PERCENTAGES BASED ON TOTAL:
+                // Present% = Present / Total × 100
+                // Absent% = Absent / Total × 100
+                // Layoff% = Layoff / Total × 100
+                // Present% + Absent% + Layoff% = 100%
+
                 var sql = @"
-                    SELECT 
-                        da.AttendanceDate,
-                        da.CompanyCode,
-                        c.CompanyName,
-                        COUNT(DISTINCT da.EmployeeCode) as TotalEmployee,
-                        100.00 as TotalPercentage,
-                        COUNT(DISTINCT CASE WHEN da.AttendanceStatus = 'Present' AND ISNULL(da.Layoff, 0) = 0 THEN da.EmployeeCode END) as Present,
-                        CASE 
-                            WHEN (COUNT(DISTINCT da.EmployeeCode) - COUNT(DISTINCT CASE WHEN ISNULL(da.Layoff, 0) = 1 THEN da.EmployeeCode END)) > 0 
-                            THEN CAST(ROUND(
-                                (COUNT(DISTINCT CASE WHEN da.AttendanceStatus = 'Present' AND ISNULL(da.Layoff, 0) = 0 THEN da.EmployeeCode END) * 100.0) / 
-                                (COUNT(DISTINCT da.EmployeeCode) - COUNT(DISTINCT CASE WHEN ISNULL(da.Layoff, 0) = 1 THEN da.EmployeeCode END)), 2) AS DECIMAL(10,2))
-                            ELSE 0 
-                        END as PresentPercentage,
-                        COUNT(DISTINCT CASE WHEN da.AttendanceStatus = 'Absent' AND ISNULL(da.Layoff, 0) = 0 THEN da.EmployeeCode END) as Absent,
-                        CASE 
-                            WHEN (COUNT(DISTINCT da.EmployeeCode) - COUNT(DISTINCT CASE WHEN ISNULL(da.Layoff, 0) = 1 THEN da.EmployeeCode END)) > 0 
-                            THEN CAST(ROUND(
-                                (COUNT(DISTINCT CASE WHEN da.AttendanceStatus = 'Absent' AND ISNULL(da.Layoff, 0) = 0 THEN da.EmployeeCode END) * 100.0) / 
-                                (COUNT(DISTINCT da.EmployeeCode) - COUNT(DISTINCT CASE WHEN ISNULL(da.Layoff, 0) = 1 THEN da.EmployeeCode END)), 2) AS DECIMAL(10,2))
-                            ELSE 0 
-                        END as AbsentPercentage,
-                        COUNT(DISTINCT CASE WHEN ISNULL(da.Layoff, 0) = 1 THEN da.EmployeeCode END) as Layoff,
-                        CASE 
-                            WHEN COUNT(DISTINCT da.EmployeeCode) > 0 
-                            THEN CAST(ROUND(
-                                (COUNT(DISTINCT CASE WHEN ISNULL(da.Layoff, 0) = 1 THEN da.EmployeeCode END) * 100.0) / 
-                                COUNT(DISTINCT da.EmployeeCode), 2) AS DECIMAL(10,2))
-                            ELSE 0 
-                        END as LayoffPercentage
-                    FROM DailyAttendance da
-                    INNER JOIN Companies c ON da.CompanyCode = c.CompanyCode
-                    WHERE da.AttendanceDate BETWEEN @FromDate AND @ToDate
-                    AND ISNULL(da.LongAbsent, 0) = 0";
+            SELECT 
+                da.AttendanceDate,
+                da.CompanyCode,
+                c.CompanyName,
+                
+                -- Total employees
+                COUNT(DISTINCT da.EmployeeCode) as TotalEmployee,
+                100.00 as TotalPercentage,
+                
+                -- Present count (only where Layoff = 0 AND status is Present)
+                COUNT(DISTINCT CASE 
+                    WHEN da.AttendanceStatus = 'Present' AND ISNULL(da.Layoff, 0) = 0 
+                    THEN da.EmployeeCode 
+                END) as Present,
+                
+                -- Absent count (only where Layoff = 0 AND status is Absent)
+                COUNT(DISTINCT CASE 
+                    WHEN da.AttendanceStatus = 'Absent' AND ISNULL(da.Layoff, 0) = 0 
+                    THEN da.EmployeeCode 
+                END) as Absent,
+                
+                -- Layoff count (regardless of AttendanceStatus)
+                COUNT(DISTINCT CASE 
+                    WHEN ISNULL(da.Layoff, 0) = 1 
+                    THEN da.EmployeeCode 
+                END) as Layoff,
+                
+                -- Present % = Present / Total * 100
+                CASE 
+                    WHEN COUNT(DISTINCT da.EmployeeCode) > 0 
+                    THEN CAST(ROUND(
+                        (COUNT(DISTINCT CASE WHEN da.AttendanceStatus = 'Present' AND ISNULL(da.Layoff, 0) = 0 THEN da.EmployeeCode END) * 100.0) / 
+                        COUNT(DISTINCT da.EmployeeCode), 2) AS DECIMAL(10,2))
+                    ELSE 0 
+                END as PresentPercentage,
+                
+                -- Absent % = Absent / Total * 100
+                CASE 
+                    WHEN COUNT(DISTINCT da.EmployeeCode) > 0 
+                    THEN CAST(ROUND(
+                        (COUNT(DISTINCT CASE WHEN da.AttendanceStatus = 'Absent' AND ISNULL(da.Layoff, 0) = 0 THEN da.EmployeeCode END) * 100.0) / 
+                        COUNT(DISTINCT da.EmployeeCode), 2) AS DECIMAL(10,2))
+                    ELSE 0 
+                END as AbsentPercentage,
+                
+                -- Layoff % = Layoff / Total * 100
+                CASE 
+                    WHEN COUNT(DISTINCT da.EmployeeCode) > 0 
+                    THEN CAST(ROUND(
+                        (COUNT(DISTINCT CASE WHEN ISNULL(da.Layoff, 0) = 1 THEN da.EmployeeCode END) * 100.0) / 
+                        COUNT(DISTINCT da.EmployeeCode), 2) AS DECIMAL(10,2))
+                    ELSE 0 
+                END as LayoffPercentage
+            FROM DailyAttendance da
+            INNER JOIN Companies c ON da.CompanyCode = c.CompanyCode
+            WHERE da.AttendanceDate BETWEEN @FromDate AND @ToDate
+            AND ISNULL(da.LongAbsent, 0) = 0";
 
                 var parameters = new DynamicParameters();
                 parameters.Add("FromDate", request.FromDate.Date);
@@ -579,7 +581,7 @@ namespace HRManagementSystem.Controllers
                 }
 
                 sql += @" GROUP BY da.AttendanceDate, da.CompanyCode, c.CompanyName
-                          ORDER BY da.AttendanceDate, c.CompanyName";
+                  ORDER BY da.AttendanceDate, c.CompanyName";
 
                 var reportData = (await connection.QueryAsync<StatisticsReportData>(sql, parameters)).ToList();
 
@@ -589,7 +591,9 @@ namespace HRManagementSystem.Controllers
                     totalPresent = reportData.Sum(r => r.Present),
                     totalAbsent = reportData.Sum(r => r.Absent),
                     totalLayoff = reportData.Sum(r => r.Layoff),
-                    averagePresentPercentage = reportData.Any() ? Math.Round(reportData.Average(r => r.PresentPercentage), 2) : 0
+                    averagePresentPercentage = reportData.Any() ? Math.Round(reportData.Average(r => r.PresentPercentage), 2) : 0,
+                    averageAbsentPercentage = reportData.Any() ? Math.Round(reportData.Average(r => r.AbsentPercentage), 2) : 0,
+                    averageLayoffPercentage = reportData.Any() ? Math.Round(reportData.Average(r => r.LayoffPercentage), 2) : 0
                 };
 
                 return Json(new { success = true, data = reportData, summary });
@@ -599,14 +603,13 @@ namespace HRManagementSystem.Controllers
                 return Json(new { success = false, message = ex.Message });
             }
         }
-
         [HttpGet]
         public async Task<IActionResult> GetStatisticsCategories(int companyCode)
         {
             using var connection = new SqlConnection(_configuration.GetConnectionString("NewAttendanceConnection"));
             var sql = @"SELECT DISTINCT Category FROM DailyAttendance 
-                        WHERE Category IS NOT NULL AND Category != '' 
-                        AND AttendanceDate >= DATEADD(DAY, -30, GETDATE())";
+                WHERE Category IS NOT NULL AND Category != '' 
+                AND AttendanceDate >= DATEADD(DAY, -30, GETDATE())";
             if (companyCode > 0) sql += " AND CompanyCode = @CompanyCode";
             sql += " ORDER BY Category";
             var result = await connection.QueryAsync<string>(sql, new { CompanyCode = companyCode });
@@ -618,8 +621,8 @@ namespace HRManagementSystem.Controllers
         {
             using var connection = new SqlConnection(_configuration.GetConnectionString("NewAttendanceConnection"));
             var sql = @"SELECT DISTINCT Department FROM DailyAttendance 
-                        WHERE Department IS NOT NULL AND Department != '' 
-                        AND AttendanceDate >= DATEADD(DAY, -30, GETDATE())";
+                WHERE Department IS NOT NULL AND Department != '' 
+                AND AttendanceDate >= DATEADD(DAY, -30, GETDATE())";
             if (companyCode > 0) sql += " AND CompanyCode = @CompanyCode";
             sql += " ORDER BY Department";
             var result = await connection.QueryAsync<string>(sql, new { CompanyCode = companyCode });
@@ -641,30 +644,60 @@ namespace HRManagementSystem.Controllers
 
                 var sql = @"
             SELECT 
-                da.AttendanceDate, da.CompanyCode, c.CompanyName,
-                COUNT(DISTINCT da.EmployeeCode) as TotalEmployee, 100.00 as TotalPercentage,
+                da.AttendanceDate,
+                da.CompanyCode,
+                c.CompanyName,
+                COUNT(DISTINCT da.EmployeeCode) as TotalEmployee,
+                100.00 as TotalPercentage,
                 COUNT(DISTINCT CASE WHEN da.AttendanceStatus = 'Present' AND ISNULL(da.Layoff, 0) = 0 THEN da.EmployeeCode END) as Present,
-                CASE WHEN (COUNT(DISTINCT da.EmployeeCode) - COUNT(DISTINCT CASE WHEN ISNULL(da.Layoff, 0) = 1 THEN da.EmployeeCode END)) > 0 
-                    THEN CAST(ROUND((COUNT(DISTINCT CASE WHEN da.AttendanceStatus = 'Present' AND ISNULL(da.Layoff, 0) = 0 THEN da.EmployeeCode END) * 100.0) / 
-                        (COUNT(DISTINCT da.EmployeeCode) - COUNT(DISTINCT CASE WHEN ISNULL(da.Layoff, 0) = 1 THEN da.EmployeeCode END)), 2) AS DECIMAL(10,2)) ELSE 0 END as PresentPercentage,
                 COUNT(DISTINCT CASE WHEN da.AttendanceStatus = 'Absent' AND ISNULL(da.Layoff, 0) = 0 THEN da.EmployeeCode END) as Absent,
-                CASE WHEN (COUNT(DISTINCT da.EmployeeCode) - COUNT(DISTINCT CASE WHEN ISNULL(da.Layoff, 0) = 1 THEN da.EmployeeCode END)) > 0 
-                    THEN CAST(ROUND((COUNT(DISTINCT CASE WHEN da.AttendanceStatus = 'Absent' AND ISNULL(da.Layoff, 0) = 0 THEN da.EmployeeCode END) * 100.0) / 
-                        (COUNT(DISTINCT da.EmployeeCode) - COUNT(DISTINCT CASE WHEN ISNULL(da.Layoff, 0) = 1 THEN da.EmployeeCode END)), 2) AS DECIMAL(10,2)) ELSE 0 END as AbsentPercentage,
                 COUNT(DISTINCT CASE WHEN ISNULL(da.Layoff, 0) = 1 THEN da.EmployeeCode END) as Layoff,
-                CASE WHEN COUNT(DISTINCT da.EmployeeCode) > 0 
-                    THEN CAST(ROUND((COUNT(DISTINCT CASE WHEN ISNULL(da.Layoff, 0) = 1 THEN da.EmployeeCode END) * 100.0) / COUNT(DISTINCT da.EmployeeCode), 2) AS DECIMAL(10,2)) ELSE 0 END as LayoffPercentage
+                -- ALL percentages based on TOTAL
+                CASE 
+                    WHEN COUNT(DISTINCT da.EmployeeCode) > 0 
+                    THEN CAST(ROUND(
+                        (COUNT(DISTINCT CASE WHEN da.AttendanceStatus = 'Present' AND ISNULL(da.Layoff, 0) = 0 THEN da.EmployeeCode END) * 100.0) / 
+                        COUNT(DISTINCT da.EmployeeCode), 2) AS DECIMAL(10,2))
+                    ELSE 0 
+                END as PresentPercentage,
+                CASE 
+                    WHEN COUNT(DISTINCT da.EmployeeCode) > 0 
+                    THEN CAST(ROUND(
+                        (COUNT(DISTINCT CASE WHEN da.AttendanceStatus = 'Absent' AND ISNULL(da.Layoff, 0) = 0 THEN da.EmployeeCode END) * 100.0) / 
+                        COUNT(DISTINCT da.EmployeeCode), 2) AS DECIMAL(10,2))
+                    ELSE 0 
+                END as AbsentPercentage,
+                CASE 
+                    WHEN COUNT(DISTINCT da.EmployeeCode) > 0 
+                    THEN CAST(ROUND(
+                        (COUNT(DISTINCT CASE WHEN ISNULL(da.Layoff, 0) = 1 THEN da.EmployeeCode END) * 100.0) / 
+                        COUNT(DISTINCT da.EmployeeCode), 2) AS DECIMAL(10,2))
+                    ELSE 0 
+                END as LayoffPercentage
             FROM DailyAttendance da
             INNER JOIN Companies c ON da.CompanyCode = c.CompanyCode
-            WHERE da.AttendanceDate BETWEEN @FromDate AND @ToDate AND ISNULL(da.LongAbsent, 0) = 0";
+            WHERE da.AttendanceDate BETWEEN @FromDate AND @ToDate 
+            AND ISNULL(da.LongAbsent, 0) = 0";
 
                 var parameters = new DynamicParameters();
                 parameters.Add("FromDate", request.FromDate.Date);
                 parameters.Add("ToDate", request.ToDate.Date);
 
-                if (request.CompanyCode > 0) { sql += " AND da.CompanyCode = @CompanyCode"; parameters.Add("CompanyCode", request.CompanyCode); }
-                if (!string.IsNullOrEmpty(request.Category) && request.Category != "All") { sql += " AND da.Category = @Category"; parameters.Add("Category", request.Category); }
-                if (!string.IsNullOrEmpty(request.Department) && request.Department != "All") { sql += " AND da.Department = @Department"; parameters.Add("Department", request.Department); }
+                if (request.CompanyCode > 0)
+                {
+                    sql += " AND da.CompanyCode = @CompanyCode";
+                    parameters.Add("CompanyCode", request.CompanyCode);
+                }
+                if (!string.IsNullOrEmpty(request.Category) && request.Category != "All")
+                {
+                    sql += " AND da.Category = @Category";
+                    parameters.Add("Category", request.Category);
+                }
+                if (!string.IsNullOrEmpty(request.Department) && request.Department != "All")
+                {
+                    sql += " AND da.Department = @Department";
+                    parameters.Add("Department", request.Department);
+                }
 
                 sql += " GROUP BY da.AttendanceDate, da.CompanyCode, c.CompanyName ORDER BY da.AttendanceDate, c.CompanyName";
 
@@ -673,25 +706,56 @@ namespace HRManagementSystem.Controllers
                 using var workbook = new XLWorkbook();
                 var ws = workbook.Worksheets.Add("Statistics Report");
 
+                // Title
                 ws.Cell(1, 1).Value = "Attendance Statistics Report";
                 ws.Cell(1, 1).Style.Font.Bold = true;
                 ws.Cell(1, 1).Style.Font.FontSize = 16;
                 ws.Range(1, 1, 1, 10).Merge();
+                ws.Cell(1, 1).Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
 
+                // Period
                 ws.Cell(2, 1).Value = $"Period: {request.FromDate:dd-MMM-yyyy} to {request.ToDate:dd-MMM-yyyy}";
                 ws.Range(2, 1, 2, 10).Merge();
+                ws.Cell(2, 1).Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
 
-                int row = 4;
+                // Filters info
+                int row = 3;
+                if (request.CompanyCode > 0)
+                {
+                    var companyName = reportData.FirstOrDefault()?.CompanyName ?? "Selected";
+                    ws.Cell(row, 1).Value = $"Company: {companyName}";
+                    ws.Range(row, 1, row, 10).Merge();
+                    row++;
+                }
+                if (!string.IsNullOrEmpty(request.Category) && request.Category != "All")
+                {
+                    ws.Cell(row, 1).Value = $"Category: {request.Category}";
+                    ws.Range(row, 1, row, 10).Merge();
+                    row++;
+                }
+                if (!string.IsNullOrEmpty(request.Department) && request.Department != "All")
+                {
+                    ws.Cell(row, 1).Value = $"Department: {request.Department}";
+                    ws.Range(row, 1, row, 10).Merge();
+                    row++;
+                }
+
+                row++; // Blank row
+
+                // Headers
+                int headerRow = row;
                 string[] headers = { "Date", "Company", "Total Employee", "Total %", "Present", "Present %", "Absent", "Absent %", "Layoff", "Layoff %" };
                 for (int i = 0; i < headers.Length; i++)
                 {
-                    ws.Cell(row, i + 1).Value = headers[i];
-                    ws.Cell(row, i + 1).Style.Font.Bold = true;
-                    ws.Cell(row, i + 1).Style.Fill.BackgroundColor = XLColor.FromHtml("#4472C4");
-                    ws.Cell(row, i + 1).Style.Font.FontColor = XLColor.White;
+                    ws.Cell(headerRow, i + 1).Value = headers[i];
+                    ws.Cell(headerRow, i + 1).Style.Font.Bold = true;
+                    ws.Cell(headerRow, i + 1).Style.Fill.BackgroundColor = XLColor.FromHtml("#4472C4");
+                    ws.Cell(headerRow, i + 1).Style.Font.FontColor = XLColor.White;
+                    ws.Cell(headerRow, i + 1).Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
                 }
 
-                row++;
+                // Data rows
+                row = headerRow + 1;
                 foreach (var item in reportData)
                 {
                     ws.Cell(row, 1).Value = item.AttendanceDate.ToString("dd-MMM-yy");
@@ -704,10 +768,54 @@ namespace HRManagementSystem.Controllers
                     ws.Cell(row, 8).Value = item.AbsentPercentage;
                     ws.Cell(row, 9).Value = item.Layoff;
                     ws.Cell(row, 10).Value = item.LayoffPercentage;
+
+                    // Format percentage columns
+                    ws.Cell(row, 6).Style.NumberFormat.Format = "0.00";
+                    ws.Cell(row, 8).Style.NumberFormat.Format = "0.00";
+                    ws.Cell(row, 10).Style.NumberFormat.Format = "0.00";
+
+                    // Color coding for present percentage
+                    if (item.PresentPercentage >= 90)
+                        ws.Cell(row, 6).Style.Font.FontColor = XLColor.Green;
+                    else if (item.PresentPercentage >= 80)
+                        ws.Cell(row, 6).Style.Font.FontColor = XLColor.Orange;
+                    else
+                        ws.Cell(row, 6).Style.Font.FontColor = XLColor.Red;
+
                     row++;
                 }
 
+                // Summary
+                row += 2;
+                ws.Cell(row, 1).Value = "Summary";
+                ws.Cell(row, 1).Style.Font.Bold = true;
+                ws.Cell(row, 1).Style.Font.FontSize = 14;
+                row++;
+
+                ws.Cell(row, 1).Value = $"Total Days: {reportData.Select(r => r.AttendanceDate).Distinct().Count()}";
+                row++;
+                ws.Cell(row, 1).Value = $"Total Records: {reportData.Count}";
+                row++;
+                ws.Cell(row, 1).Value = $"Total Present: {reportData.Sum(r => r.Present):N0}";
+                ws.Cell(row, 1).Style.Font.FontColor = XLColor.Green;
+                row++;
+                ws.Cell(row, 1).Value = $"Total Absent: {reportData.Sum(r => r.Absent):N0}";
+                ws.Cell(row, 1).Style.Font.FontColor = XLColor.Red;
+                row++;
+                ws.Cell(row, 1).Value = $"Total Layoff: {reportData.Sum(r => r.Layoff):N0}";
+                ws.Cell(row, 1).Style.Font.FontColor = XLColor.Orange;
+                row++;
+                if (reportData.Any())
+                {
+                    ws.Cell(row, 1).Value = $"Avg Present %: {reportData.Average(r => r.PresentPercentage):F2}%";
+                    row++;
+                    ws.Cell(row, 1).Value = $"Avg Absent %: {reportData.Average(r => r.AbsentPercentage):F2}%";
+                    row++;
+                    ws.Cell(row, 1).Value = $"Avg Layoff %: {reportData.Average(r => r.LayoffPercentage):F2}%";
+                }
+
                 ws.Columns().AdjustToContents();
+                ws.SheetView.FreezeRows(headerRow);
 
                 using var stream = new MemoryStream();
                 workbook.SaveAs(stream);

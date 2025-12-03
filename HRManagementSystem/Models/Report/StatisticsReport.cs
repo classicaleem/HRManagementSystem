@@ -21,6 +21,7 @@ namespace HRManagementSystem.Models.Report
     {
         public DateTime AttendanceDate { get; set; }
         public string FormattedDate => AttendanceDate.ToString("dd-MMM-yy");
+        public string SortableDate => AttendanceDate.ToString("yyyy-MM-dd");
         public int CompanyCode { get; set; }
         public string CompanyName { get; set; }
         public int TotalEmployee { get; set; }

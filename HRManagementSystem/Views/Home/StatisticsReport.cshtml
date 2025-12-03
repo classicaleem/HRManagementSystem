@@ -4,7 +4,6 @@
     var userRole = ViewBag.UserRole as string;
     var userCompanyCode = (int)ViewBag.UserCompanyCode;
 
-    // Calculate default week dates
     var today = DateTime.Today;
     int diff = (7 + (today.DayOfWeek - DayOfWeek.Monday)) % 7;
     var fromDate = today.AddDays(-diff);
@@ -349,7 +348,7 @@
                 <i class="fas fa-calculator me-2"></i> Report Summary
             </h5>
             <div class="row">
-                <div class="col-md-4">
+                <div class="col-md-3">
                     <div class="summary-item">
                         <span class="summary-label">Total Days:</span>
                         <span class="summary-value" id="summaryTotalDays">0</span>
@@ -359,7 +358,7 @@
                         <span class="summary-value" id="summaryTotalRecords">0</span>
                     </div>
                 </div>
-                <div class="col-md-4">
+                <div class="col-md-3">
                     <div class="summary-item">
                         <span class="summary-label">Total Present:</span>
                         <span class="summary-value present" id="summaryTotalPresent">0</span>
@@ -369,14 +368,24 @@
                         <span class="summary-value present" id="summaryAvgPresent">0%</span>
                     </div>
                 </div>
-                <div class="col-md-4">
+                <div class="col-md-3">
                     <div class="summary-item">
                         <span class="summary-label">Total Absent:</span>
                         <span class="summary-value absent" id="summaryTotalAbsent">0</span>
                     </div>
                     <div class="summary-item">
+                        <span class="summary-label">Avg Absent %:</span>
+                        <span class="summary-value absent" id="summaryAvgAbsent">0%</span>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="summary-item">
                         <span class="summary-label">Total Layoff:</span>
                         <span class="summary-value layoff" id="summaryTotalLayoff">0</span>
+                    </div>
+                    <div class="summary-item">
+                        <span class="summary-label">Avg Layoff %:</span>
+                        <span class="summary-value layoff" id="summaryAvgLayoff">0%</span>
                     </div>
                 </div>
             </div>
@@ -404,7 +413,15 @@
                 dataTable = $('#reportTable').DataTable({
                     data: [],
                     columns: [
-                        { data: 'formattedDate' },
+                        {
+                            data: 'formattedDate',
+                            render: function (data, type, row) {
+                                if (type === 'sort' || type === 'type') {
+                                    return row.sortableDate;
+                                }
+                                return data;
+                            }
+                        },
                         { data: 'companyName' },
                         {
                             data: 'totalEmployee',
@@ -424,7 +441,8 @@
                         },
                         {
                             data: 'presentPercentage',
-                            render: function (data) {
+                            render: function (data, type) {
+                                if (type === 'sort') return data;
                                 var colorClass = data >= 90 ? 'percentage-high' : (data >= 80 ? 'percentage-medium' : 'percentage-low');
                                 return '<span class="' + colorClass + '">' + data.toFixed(2) + '</span>';
                             }
@@ -437,7 +455,8 @@
                         },
                         {
                             data: 'absentPercentage',
-                            render: function (data) {
+                            render: function (data, type) {
+                                if (type === 'sort') return data;
                                 return '<span class="percentage-low">' + data.toFixed(2) + '</span>';
                             }
                         },
@@ -449,13 +468,19 @@
                         },
                         {
                             data: 'layoffPercentage',
-                            render: function (data) {
+                            render: function (data, type) {
+                                if (type === 'sort') return data;
                                 return data > 0 ? '<span style="color:#f57c00;font-weight:600;">' + data.toFixed(2) + '</span>' : '0.00';
                             }
                         }
                     ],
                     pageLength: 25,
-                    order: [[0, 'asc']]
+                    lengthMenu: [[10, 25, 50, 100, -1], [10, 25, 50, 100, "All"]],
+                    order: [[0, 'asc']],
+                    language: {
+                        emptyTable: "No data available. Please apply filters.",
+                        zeroRecords: "No matching records found."
+                    }
                 });
             }
 
@@ -508,6 +533,8 @@
                                 $('#summaryTotalAbsent').text(response.summary.totalAbsent.toLocaleString());
                                 $('#summaryTotalLayoff').text(response.summary.totalLayoff.toLocaleString());
                                 $('#summaryAvgPresent').text(response.summary.averagePresentPercentage.toFixed(2) + '%');
+                                $('#summaryAvgAbsent').text(response.summary.averageAbsentPercentage.toFixed(2) + '%');
+                                $('#summaryAvgLayoff').text(response.summary.averageLayoffPercentage.toFixed(2) + '%');
                                 $('#btnExport').prop('disabled', false);
                             } else {
                                 $('#summarySection').hide();
